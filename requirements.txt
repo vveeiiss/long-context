@@ -1,0 +1,39 @@
+# ─────────────────────────────────────────────────────────────────────────────
+# Scientific IR Pipeline — Requirements
+# Install with: pip install -r requirements.txt
+#
+# GPU (CUDA 12.1) torch install — run this first if on GPU:
+#   pip install torch==2.5.1+cu121 --index-url https://download.pytorch.org/whl/cu121
+# ─────────────────────────────────────────────────────────────────────────────
+
+# ── Google Scholar scraping ───────────────────────────────────────────────────
+scholarly==1.7.11
+
+# ── HTTP requests ─────────────────────────────────────────────────────────────
+requests==2.32.3
+
+# ── arXiv paper search + PDF download ────────────────────────────────────────
+arxiv==2.1.3
+
+# ── PDF text extraction ───────────────────────────────────────────────────────
+pymupdf==1.24.11                   # imported as `fitz`
+
+# ── Data handling ─────────────────────────────────────────────────────────────
+pandas==2.2.3
+
+# ── Progress bars ─────────────────────────────────────────────────────────────
+tqdm==4.66.5
+
+# ── Cross-encoder reranker (Stage 1) ─────────────────────────────────────────
+sentence-transformers==3.3.1
+
+# ── LLM inference (Stage 2) ──────────────────────────────────────────────────
+transformers==4.46.3
+accelerate==1.1.1                  # required for device_map="auto"
+torch==2.5.1                       # CPU version; see note above for GPU
+
+# ── Optional: 4-bit quantization for low-VRAM GPUs ───────────────────────────
+bitsandbytes==0.44.1
+
+# ── Config / environment ──────────────────────────────────────────────────────
+python-dotenv==1.0.1
