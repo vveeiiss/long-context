@@ -1,0 +1,181 @@
+
+Semantic Scholar matches
+------------------------------------------------------------
+ 1. Yann LeCun | score=1.000 | affiliations=Facebook, NYU
+ 2. Yann LeCun | score=1.000 | affiliations=N/A
+ 3. L. Yann | score=0.471 | affiliations=N/A
+Best match: Yann LeCun (score=1.000)
+
+Selected author
+------------------------------------------------------------
+Name         : Yann LeCun
+Affiliations : Facebook, NYU
+Author ID    : 1688882
+
+============================================================
+SCIENTIFIC IR PIPELINE — START
+============================================================
+Target person : Yann Lecun
+Selected name : Yann LeCun
+Selected aff. : Facebook, NYU
+Preferred N   : 10
+
+[Stage 0] Fetching papers and full-text sources...
+
+============================================================
+STAGE 0 — Fetching papers for one Semantic Scholar author
+============================================================
+Person          : Yann LeCun
+Affiliations    : Facebook, NYU
+Papers available: 403
+    [Semantic Scholar PDF] Could not fetch 'FAST INCREMENTAL LEARNING FOR AUTONOMOUS GROUND NAVIGATION': 429 Client Error:  for url: https://api.semanticscholar.org/graph/v1/paper/search?query=FAST+INCREMENTAL+LEARNING+FOR+AUTONOMOUS+GROUND+NAVIGATION&fields=title%2Cabstract%2CopenAccessPdf&limit=1
+  [ 1] ❌ full text (abstract_only) — FAST INCREMENTAL LEARNING FOR AUTONOMOUS GROUND NAVIGATION
+       Authors       : Artem Provodin, L. Torabi, Urs Muller, B. Flepp, Michael Sergio, Jure Zbontar, Yann LeCun, L. Jackel
+       Affiliations  : Artem Provodin: N/A; L. Torabi: N/A; Urs Muller: N/A; B. Flepp: N/A; Michael Sergio: N/A; Jure Zbontar: N/A; Yann LeCun: N/A; L. Jackel: N/A
+  [ 2] ✅ full text (arxiv) — Learning and Leveraging World Models in Visual Representatio
+       Authors       : Q. Garrido, Mahmoud Assran, Nicolas Ballas, Adrien Bardes, Laurent Najman, Yann LeCun
+       Affiliations  : Q. Garrido: N/A; Mahmoud Assran: N/A; Nicolas Ballas: N/A; Adrien Bardes: N/A; Laurent Najman: N/A; Yann LeCun: N/A
+  [ 3] ✅ full text (semantic_scholar_pdf) — The SSL Interplay: Augmentations, Inductive Bias, and Genera
+       Authors       : Vivien A. Cabannes, B. Kiani, Randall Balestriero, Yann LeCun, A. Bietti
+       Affiliations  : Vivien A. Cabannes: N/A; B. Kiani: N/A; Randall Balestriero: N/A; Yann LeCun: N/A; A. Bietti: N/A
+    [Semantic Scholar PDF] Could not fetch 'Minimalistic Unsupervised Representation Learning with the S': 429 Client Error:  for url: https://api.semanticscholar.org/graph/v1/paper/search?query=Minimalistic+Unsupervised+Representation+Learning+with+the+Sparse+Manifold+Transform&fields=title%2Cabstract%2CopenAccessPdf&limit=1
+    [Semantic Scholar] Rate limited (429); retrying in 1s...
+    [Semantic Scholar] Rate limited (429); retrying in 2s...
+  [ 4] ❌ full text (abstract_only) — Minimalistic Unsupervised Representation Learning with the S
+       Authors       : Yubei Chen, Zeyu Yun, Yi Ma, B. Olshausen, Yann LeCun
+       Affiliations  : Yubei Chen: N/A; Zeyu Yun: N/A; Yi Ma: N/A; B. Olshausen: N/A; Yann LeCun: N/A
+  [ 5] ✅ full text (semantic_scholar_pdf) — Self-supervised learning of Split Invariant Equivariant repr
+       Authors       : Q. Garrido, Laurent Najman, Yann LeCun
+       Affiliations  : Q. Garrido: N/A; Laurent Najman: N/A; Yann LeCun: N/A
+  [ 6] ✅ full text (semantic_scholar_pdf) — Fast and Exact Enumeration of Deep Networks Partitions Regio
+       Authors       : Randall Balestriero, Yann LeCun
+       Affiliations  : Randall Balestriero: N/A; Yann LeCun: N/A
+  [ 7] ✅ full text (arxiv) — Active Self-Supervised Learning: A Few Low-Cost Relationship
+       Authors       : Vivien A. Cabannes, L. Bottou, Yann LeCun, Randall Balestriero
+       Affiliations  : Vivien A. Cabannes: N/A; L. Bottou: N/A; Yann LeCun: N/A; Randall Balestriero: N/A
+  [ 8] ✅ full text (semantic_scholar_pdf) — An Information-Theoretic Perspective on Variance-Invariance-
+       Authors       : Ravid Shwartz-Ziv, Randall Balestriero, Kenji Kawaguchi, Tim G. J. Rudner, Yann LeCun
+       Affiliations  : Ravid Shwartz-Ziv: N/A; Randall Balestriero: N/A; Kenji Kawaguchi: N/A; Tim G. J. Rudner: N/A; Yann LeCun: N/A
+  [ 9] ✅ full text (arxiv) — Augmented Language Models: a Survey
+       Authors       : G. Mialon, Roberto Dessì, M. Lomeli, Christoforos Nalmpantis, Ramakanth Pasunuru, R. Raileanu, Baptiste Rozière, Timo Schick, Jane Dwivedi-Yu, Asli Celikyilmaz, Edouard Grave, Yann LeCun, Thomas Scialom
+       Affiliations  : G. Mialon: N/A; Roberto Dessì: N/A; M. Lomeli: N/A; Christoforos Nalmpantis: N/A; Ramakanth Pasunuru: N/A; R. Raileanu: N/A; Baptiste Rozière: N/A; Timo Schick: N/A; Jane Dwivedi-Yu: N/A; Asli Celikyilmaz: N/A; Edouard Grave: N/A; Yann LeCun: N/A; Thomas Scialom: N/A
+  [10] ✅ full text (arxiv) — Harnessing Explanations: LLM-to-LM Interpreter for Enhanced 
+       Authors       : Xiaoxin He, X. Bresson, T. Laurent, Adam Perold, Yann LeCun, Bryan Hooi
+       Affiliations  : Xiaoxin He: N/A; X. Bresson: N/A; T. Laurent: N/A; Adam Perold: N/A; Yann LeCun: N/A; Bryan Hooi: N/A
+
+✅ Fetched 10 papers | Full text available: 8/10
+💾 Saved to 'data/papers_raw.csv'
+[Stage 0] Output shape: (10, 10)
+
+[Stage 1] Cross-encoder reranking (coarse)...
+
+============================================================
+STAGE 1 — Coarse ranking with cross-encoder reranker
+============================================================
+Query : "revisiting text ranking in deep research"
+Papers: 10 | Keeping top: 5
+  ⚠️  1 papers have no abstract — scoring on title only.
+Loading reranker : BAAI/bge-reranker-v2-m3
+Scoring 10 (query, document) pairs...
+
+────────────────────────────────────────────────────────────
+Rank     Score  Source                  Title
+────────────────────────────────────────────────────────────
+  [ 1]  0.0010  arxiv                   Harnessing Explanations: LLM-to-LM Interpreter for Enha
+  [ 2]  0.0006  semantic_scholar_pdf    Fast and Exact Enumeration of Deep Networks Partitions 
+  [ 3]  0.0002  arxiv                   Augmented Language Models: a Survey
+  [ 4]  0.0001  arxiv                   Active Self-Supervised Learning: A Few Low-Cost Relatio
+  [ 5]  0.0001  arxiv                   Learning and Leveraging World Models in Visual Represen
+────────────────────────────────────────────────────────────
+
+✅ Stage 1 complete — kept top 5 papers.
+   Full text available in top-5: 5/5
+💾 Saved to 'data/papers_stage1.csv'
+[Stage 1] Output shape: (5, 12)
+
+[Stage 2] LLM-based listwise ranking and rationale extraction...
+
+============================================================
+STAGE 2 — Fine ranking with LLM (listwise)
+============================================================
+Input text mode : abstract
+Papers with full text : 5/5
+  → 4-bit quantization enabled (bitsandbytes)
+Loading LLM : Qwen/Qwen2.5-7B-Instruct
+Prompt length : 1745 tokens
+Running LLM inference...
+
+--- Raw LLM Output (first 2000 chars) ---
+RANK 1 | Paper 1 | Score: 0.9
+Rationale: The paper directly addresses the use of language models to enhance graph representation learning, which is closely related to the concept of text ranking in deep research.
+
+RANK 2 | Paper 5 | Score: 0.8
+Rationale: Although not directly about text ranking, the paper discusses using world models for visual representation learning, which could indirectly relate to text-based representation learning.
+
+RANK 3 | Paper 3 | Score: 0.7
+Rationale: The paper surveys augmented language models, which include reasoning skills, potentially relevant to understanding and improving text ranking algorithms.
+
+RANK 4 | Paper 4 | Score: 0.6
+Rationale: The paper focuses on active self-supervised learning, which may have some tangential relevance to text ranking but is primarily concerned with visual data.
+
+RANK 5 | Paper 2 | Score: 0.5
+Rationale: The paper deals with partition regions in deep networks, which is unrelated to text ranking and more focused on signal processing and computer vision. RANK 1 | Paper 1 | Score: 0.9
+Rationale: The paper directly addresses the use of language models to enhance graph representation learning, which is closely related to the concept of text ranking in deep research.
+
+RANK 2 | Paper 3 | Score: 0.8
+Rationale: The paper surveys augmented language models, which include reasoning skills, potentially relevant to understanding and improving text ranking algorithms.
+
+RANK 3 | Paper 5 | Score: 0.7
+Rationale: Although not directly about text ranking, the paper discusses using world models for visual representation learning, which could indirectly relate to text-based representation learning.
+
+RANK 4 | Paper 4 | Score: 0.6
+Rationale: The paper focuses on active self-supervised learning, which may have some tangential relevance to text ranking but is primarily concerned with visual data.
+
+RANK 5 | Paper 2 | Score: 0.5
+Rationale: The paper deals with partition regions in deep networks, which is unrelated to text ranking and
+
+────────────────────────────────────────────────────────────
+Stage 2 Final Ranking
+────────────────────────────────────────────────────────────
+
+  Rank  1 | Score: 0.90 | Source: arxiv
+  Title     : Harnessing Explanations: LLM-to-LM Interpreter for Enhanced Text-Attributed Grap
+  Rationale : The paper directly addresses the use of language models to enhance graph representation learning, which is closely relat
+
+  Rank  2 | Score: 0.80 | Source: arxiv
+  Title     : Augmented Language Models: a Survey
+  Rationale : The paper surveys augmented language models, which include reasoning skills, potentially relevant to understanding and i
+
+  Rank  3 | Score: 0.70 | Source: arxiv
+  Title     : Learning and Leveraging World Models in Visual Representation Learning
+  Rationale : Although not directly about text ranking, the paper discusses using world models for visual representation learning, whi
+
+  Rank  4 | Score: 0.60 | Source: arxiv
+  Title     : Active Self-Supervised Learning: A Few Low-Cost Relationships Are All You Need
+  Rationale : The paper focuses on active self-supervised learning, which may have some tangential relevance to text ranking but is pr
+
+  Rank  5 | Score: 0.50 | Source: semantic_scholar_pdf
+  Title     : Fast and Exact Enumeration of Deep Networks Partitions Regions
+  Rationale : The paper deals with partition regions in deep networks, which is unrelated to text ranking and more focused on signal p
+────────────────────────────────────────────────────────────
+
+✅ Stage 2 complete.
+💾 Saved to 'data/papers_stage2.csv'
+[Stage 2] Output shape: (5, 15)
+
+============================================================
+SCIENTIFIC IR PIPELINE — COMPLETE
+  Person             : Yann Lecun
+  Selected name      : Yann LeCun
+  Query              : revisiting text ranking in deep research
+  Papers scraped     : 10
+  After Stage 1      : 5
+  Final ranking      : 5
+  Stage 2 input mode : abstract
+  Papers w/ full text: 5/5
+
+  Output files:
+    data/papers_raw.csv
+    data/papers_stage1.csv
+    data/papers_stage2.csv
+============================================================

@@ -1,0 +1,96 @@
+
+============================================================
+SCIENTIFIC IR PIPELINE — START
+============================================================
+
+[Stage 0] Fetching papers from Google Scholar and full-text sources...
+
+============================================================
+STAGE 0 — Fetching papers from Google Scholar
+============================================================
+Author ID : WLN3QrAAAAAJ
+[Stage 0] Google Scholar lookup failed; falling back to Semantic Scholar search using the configured query.
+[Stage 0] Reason: 'NoneType' object has no attribute 'get'
+
+============================================================
+STAGE 0 — Fetching papers from Semantic Scholar fallback
+============================================================
+  [ 1] ✅ full text (arxiv) — Sparse Meets Dense: A Hybrid Approach to Enhance Scientific 
+    [Semantic Scholar PDF] Could not fetch 'Transformative Advances in PDF Information Management: Lever': 429 Client Error:  for url: https://api.semanticscholar.org/graph/v1/paper/search?query=Transformative+Advances+in+PDF+Information+Management%3A+Leveraging+Transformer+Models+for+Contextual+Query-Answering&fields=title%2Cabstract%2CopenAccessPdf&limit=1
+  [ 2] ❌ full text (abstract_only) — Transformative Advances in PDF Information Management: Lever
+    [Semantic Scholar PDF] Could not fetch 'Enhancing Large Language Models with a Hybrid Retrieval-Augm': 429 Client Error:  for url: https://api.semanticscholar.org/graph/v1/paper/search?query=Enhancing+Large+Language+Models+with+a+Hybrid+Retrieval-Augmented+Generation+System%3A+A+Comparative+Analysis&fields=title%2Cabstract%2CopenAccessPdf&limit=1
+  [ 3] ❌ full text (abstract_only) — Enhancing Large Language Models with a Hybrid Retrieval-Augm
+    [Semantic Scholar PDF] Could not fetch 'CoSAEmb: Contrastive Section-aware Aspect Embeddings for Sci': 429 Client Error:  for url: https://api.semanticscholar.org/graph/v1/paper/search?query=CoSAEmb%3A+Contrastive+Section-aware+Aspect+Embeddings+for+Scientific+Articles&fields=title%2Cabstract%2CopenAccessPdf&limit=1
+  [ 4] ❌ full text (abstract_only) — CoSAEmb: Contrastive Section-aware Aspect Embeddings for Sci
+    [Semantic Scholar PDF] Could not fetch 'Machine Reading at Scale: A Search Engine for Scientific and': 429 Client Error:  for url: https://api.semanticscholar.org/graph/v1/paper/search?query=Machine+Reading+at+Scale%3A+A+Search+Engine+for+Scientific+and+Academic+Research&fields=title%2Cabstract%2CopenAccessPdf&limit=1
+  [ 5] ❌ full text (abstract_only) — Machine Reading at Scale: A Search Engine for Scientific and
+    [Semantic Scholar PDF] Could not fetch 'Enhancing Technical Document Compliance Review through a Con': 429 Client Error:  for url: https://api.semanticscholar.org/graph/v1/paper/search?query=Enhancing+Technical+Document+Compliance+Review+through+a+Context-Aware+Generative+AI+Framework&fields=title%2Cabstract%2CopenAccessPdf&limit=1
+  [ 6] ❌ full text (abstract_only) — Enhancing Technical Document Compliance Review through a Con
+  [ 7] ✅ full text (semantic_scholar_pdf) — M6Doc: A Large-Scale Multi-Format, Multi-Type, Multi-Layout,
+    [Semantic Scholar PDF] Could not fetch 'Leveraging Salience Analysis and Sparse Attention for Long D': 429 Client Error:  for url: https://api.semanticscholar.org/graph/v1/paper/search?query=Leveraging+Salience+Analysis+and+Sparse+Attention+for+Long+Document+Summarization&fields=title%2Cabstract%2CopenAccessPdf&limit=1
+  [ 8] ❌ full text (abstract_only) — Leveraging Salience Analysis and Sparse Attention for Long D
+  [ 9] ✅ full text (arxiv) — Document-Level Abstractive Summarization
+    [Semantic Scholar PDF] Could not fetch 'What Kind of Sourcery is This? Evaluating GPT-4’s Performanc': 429 Client Error:  for url: https://api.semanticscholar.org/graph/v1/paper/search?query=What+Kind+of+Sourcery+is+This%3F+Evaluating+GPT-4%E2%80%99s+Performance+on+Linking+Scientific+Fact+to+Citations&fields=title%2Cabstract%2CopenAccessPdf&limit=1
+  [10] ❌ full text (abstract_only) — What Kind of Sourcery is This? Evaluating GPT-4’s Performanc
+  [11] ✅ full text (arxiv) — MIReAD: Simple Method for Learning High-quality Representati
+  [12] ❌ full text (abstract_only) — Dynamic Reference Extraction and Linking across Multiple Sch
+    [Semantic Scholar PDF] Could not fetch 'NLM at BioASQ Synergy 2021: Deep Learning-based Methods for ': 429 Client Error:  for url: https://api.semanticscholar.org/graph/v1/paper/search?query=NLM+at+BioASQ+Synergy+2021%3A+Deep+Learning-based+Methods+for+Biomedical+Semantic+Question+Answering+about+COVID-19&fields=title%2Cabstract%2CopenAccessPdf&limit=1
+    [Semantic Scholar Abstract] Warning for 'NLM at BioASQ Synergy 2021: Deep Learning-based Methods for ': 429 Client Error:  for url: https://api.semanticscholar.org/graph/v1/paper/search?query=NLM+at+BioASQ+Synergy+2021%3A+Deep+Learning-based+Methods+for+Biomedical+Semantic+Question+Answering+about+COVID-19&fields=title%2Cabstract&limit=1
+  [13] ❌ full text (abstract_only) — NLM at BioASQ Synergy 2021: Deep Learning-based Methods for 
+  [14] ✅ full text (arxiv) — PairSem: LLM-Guided Pairwise Semantic Matching for Scientifi
+    [Semantic Scholar PDF] Could not fetch 'Transformer and Knowledge Based Siamese Models for Medical D': 429 Client Error:  for url: https://api.semanticscholar.org/graph/v1/paper/search?query=Transformer+and+Knowledge+Based+Siamese+Models+for+Medical+Document+Retrieval&fields=title%2Cabstract%2CopenAccessPdf&limit=1
+  [15] ❌ full text (abstract_only) — Transformer and Knowledge Based Siamese Models for Medical D
+    [Semantic Scholar PDF] Could not fetch 'Enhancing Scientific Document Simplification through Adaptiv': 429 Client Error:  for url: https://api.semanticscholar.org/graph/v1/paper/search?query=Enhancing+Scientific+Document+Simplification+through+Adaptive+Retrieval+and+Generative+Models&fields=title%2Cabstract%2CopenAccessPdf&limit=1
+    [Semantic Scholar Abstract] Warning for 'Enhancing Scientific Document Simplification through Adaptiv': 429 Client Error:  for url: https://api.semanticscholar.org/graph/v1/paper/search?query=Enhancing+Scientific+Document+Simplification+through+Adaptive+Retrieval+and+Generative+Models&fields=title%2Cabstract&limit=1
+  [16] ❌ full text (abstract_only) — Enhancing Scientific Document Simplification through Adaptiv
+  [17] ✅ full text (arxiv) — Improving Scientific Document Retrieval with Concept Coverag
+  [18] ✅ full text (arxiv) — Evaluating the Effectiveness of Retrieval-Augmented Large La
+    [Semantic Scholar PDF] Could not fetch 'Advanced Retrieval Augmented Generation: Multilingual Semant': 429 Client Error:  for url: https://api.semanticscholar.org/graph/v1/paper/search?query=Advanced+Retrieval+Augmented+Generation%3A+Multilingual+Semantic+Retrieval+across+Document+Types+by+Finetuning+Transformer+Based+Language+Models+and+OCR+Integration&fields=title%2Cabstract%2CopenAccessPdf&limit=1
+  [19] ❌ full text (abstract_only) — Advanced Retrieval Augmented Generation: Multilingual Semant
+    [Semantic Scholar PDF] Could not fetch 'Retrieval Augmented Document-Level Information Extraction fr': 429 Client Error:  for url: https://api.semanticscholar.org/graph/v1/paper/search?query=Retrieval+Augmented+Document-Level+Information+Extraction+from+Scientific+Articles+Using+Large+Language+Models&fields=title%2Cabstract%2CopenAccessPdf&limit=1
+  [20] ❌ full text (abstract_only) — Retrieval Augmented Document-Level Information Extraction fr
+
+✅ Fetched 20 papers | Full text available: 7/20
+💾 Saved to 'data/papers_raw.csv'
+[Stage 0] Output shape: (20, 10)
+
+[Stage 1] Cross-encoder reranking (coarse)...
+
+============================================================
+STAGE 1 — Coarse ranking with cross-encoder reranker
+============================================================
+Query : "transformer models for scientific document retrieval"
+Papers: 20 | Keeping top: 10
+  ⚠️  2 papers have no abstract — scoring on title only.
+Loading reranker : BAAI/bge-reranker-v2-m3
+Scoring 20 (query, document) pairs...
+
+────────────────────────────────────────────────────────────
+Rank     Score  Source                  Title
+────────────────────────────────────────────────────────────
+  [ 1]  0.9863  arxiv                   Sparse Meets Dense: A Hybrid Approach to Enhance Scient
+  [ 2]  0.9756  abstract_only           Dynamic Reference Extraction and Linking across Multipl
+  [ 3]  0.9754  abstract_only           Transformer and Knowledge Based Siamese Models for Medi
+  [ 4]  0.9751  arxiv                   MIReAD: Simple Method for Learning High-quality Represe
+  [ 5]  0.9501  abstract_only           CoSAEmb: Contrastive Section-aware Aspect Embeddings fo
+  [ 6]  0.9395  abstract_only           Machine Reading at Scale: A Search Engine for Scientifi
+  [ 7]  0.8941  abstract_only           What Kind of Sourcery is This? Evaluating GPT-4’s Perfo
+  [ 8]  0.8556  abstract_only           Transformative Advances in PDF Information Management: 
+  [ 9]  0.8551  arxiv                   Document-Level Abstractive Summarization
+  [10]  0.8338  semantic_scholar_pdf    M6Doc: A Large-Scale Multi-Format, Multi-Type, Multi-La
+────────────────────────────────────────────────────────────
+
+✅ Stage 1 complete — kept top 10 papers.
+   Full text available in top-10: 4/10
+💾 Saved to 'data/papers_stage1.csv'
+[Stage 1] Output shape: (10, 12)
+
+[Stage 2] LLM-based listwise ranking and rationale extraction...
+
+============================================================
+STAGE 2 — Fine ranking with LLM (listwise)
+============================================================
+Input text mode : abstract
+Papers with full text : 4/10
+  ℹ️  6 papers will use abstract as fallback.
+Loading LLM : Qwen/Qwen3-8B-Instruct

@@ -1,0 +1,150 @@
+
+============================================================
+SCIENTIFIC IR PIPELINE — START
+============================================================
+
+[Stage 0] Fetching papers from Google Scholar and full-text sources...
+
+============================================================
+STAGE 0 — Semantic Scholar primary source
+============================================================
+Query : revisiting text ranking in deep research
+
+============================================================
+STAGE 0 — Fetching papers from Semantic Scholar fallback
+============================================================
+    [Semantic Scholar] Rate limited (429); retrying in 1s...
+  [ 1] ✅ full text (arxiv) — Revisiting Text Ranking in Deep Research
+       Authors       : Chuan Meng, Litu Ou, Sean MacAvaney, Jeff Dalton
+       Affiliations  : Chuan Meng: N/A; Litu Ou: N/A; Sean MacAvaney: N/A; Jeff Dalton: N/A
+  [ 2] ✅ full text (arxiv) — Deep Research Comparator: A Platform For Fine-grained Human 
+       Authors       : Prahaladh Chandrahasan, Jiahe Jin, Zhihan Zhang, Tevin Wang, Andy Tang, Lucy Mo, Morteza Ziyadi, Leonardo F. R. Ribeiro, Zimeng Qiu, Markus Dreyer, Akari Asai, Chenyan Xiong
+       Affiliations  : Prahaladh Chandrahasan: N/A; Jiahe Jin: N/A; Zhihan Zhang: N/A; Tevin Wang: N/A; Andy Tang: N/A; Lucy Mo: N/A; Morteza Ziyadi: N/A; Leonardo F. R. Ribeiro: N/A; Zimeng Qiu: N/A; Markus Dreyer: N/A; Akari Asai: N/A; Chenyan Xiong: N/A
+    [Semantic Scholar PDF] Could not fetch 'Research on an intelligent system for optimizing the ranking': 429 Client Error:  for url: https://api.semanticscholar.org/graph/v1/paper/search?query=Research+on+an+intelligent+system+for+optimizing+the+ranking+of+e-commerce+product+search+results+using+deep+learning+algorithm&fields=title%2Cabstract%2CopenAccessPdf&limit=1
+  [ 3] ❌ full text (abstract_only) — Research on an intelligent system for optimizing the ranking
+       Authors       : Rongrong Chen
+       Affiliations  : Rongrong Chen: N/A
+    [Semantic Scholar PDF] Could not fetch 'A novel deep ensemble-based model with outlier removal and o': 429 Client Error:  for url: https://api.semanticscholar.org/graph/v1/paper/search?query=A+novel+deep+ensemble-based+model+with+outlier+removal+and+order-invariant+ranking+for+carbon+dioxide+emission+prediction&fields=title%2Cabstract%2CopenAccessPdf&limit=1
+    [Semantic Scholar] Rate limited (429); retrying in 1s...
+    [Semantic Scholar] Rate limited (429); retrying in 2s...
+    [Semantic Scholar] Rate limited (429); retrying in 4s...
+    [Semantic Scholar Abstract] Warning for 'A novel deep ensemble-based model with outlier removal and o': Semantic Scholar request failed after retries
+  [ 4] ❌ full text (abstract_only) — A novel deep ensemble-based model with outlier removal and o
+       Authors       : Huan Yan, Zhaoyang Xu
+       Affiliations  : Huan Yan: N/A; Zhaoyang Xu: N/A
+    [Semantic Scholar PDF] Could not fetch 'Hybrid model of machine and deep learning to analyze Twitter': 429 Client Error:  for url: https://api.semanticscholar.org/graph/v1/paper/search?query=Hybrid+model+of+machine+and+deep+learning+to+analyze+Twitter+data+and+prediction+of+online+public+opinion%3A+revisiting+agenda-setting+implications&fields=title%2Cabstract%2CopenAccessPdf&limit=1
+  [ 5] ❌ full text (abstract_only) — Hybrid model of machine and deep learning to analyze Twitter
+       Authors       : Shumaila Khan, S. Raza, Mubashir Ilyas, Amjad Ali Shah, Umer Zaman, Emenyeonu, C. Ogadimma, Sadaf Sattar
+       Affiliations  : Shumaila Khan: N/A; S. Raza: N/A; Mubashir Ilyas: N/A; Amjad Ali Shah: N/A; Umer Zaman: N/A; Emenyeonu, C. Ogadimma: N/A; Sadaf Sattar: N/A
+  [ 6] ✅ full text (arxiv) — MiroEval: Benchmarking Multimodal Deep Research Agents in Pr
+       Authors       : Fangda Ye, Yuxin Hu, Peng Zhu, Yibo Li, Ziqi Jin, Yaoge Xiao, Yibo Wang, Lei Wang, Zhen Zhang, Lu Wang, Yue Deng, Bin Wang, Yifan Zhang, Liangcai Su, Xinyu Wang, He Zhao, Chen Wei, Qian Ren, Bryan Hooi, A. Bo, Shuicheng Yan, L. Bing
+       Affiliations  : Fangda Ye: N/A; Yuxin Hu: N/A; Peng Zhu: N/A; Yibo Li: N/A; Ziqi Jin: N/A; Yaoge Xiao: N/A; Yibo Wang: N/A; Lei Wang: N/A; Zhen Zhang: N/A; Lu Wang: N/A; Yue Deng: N/A; Bin Wang: N/A; Yifan Zhang: N/A; Liangcai Su: N/A; Xinyu Wang: N/A; He Zhao: N/A; Chen Wei: N/A; Qian Ren: N/A; Bryan Hooi: N/A; A. Bo: N/A; Shuicheng Yan: N/A; L. Bing: N/A
+    [Semantic Scholar PDF] Could not fetch 'A Method of Extractive Text Summarization Using Document Sem': 429 Client Error:  for url: https://api.semanticscholar.org/graph/v1/paper/search?query=A+Method+of+Extractive+Text+Summarization+Using+Document+Semantic+Graph+With+Node+Ranking&fields=title%2Cabstract%2CopenAccessPdf&limit=1
+  [ 7] ❌ full text (abstract_only) — A Method of Extractive Text Summarization Using Document Sem
+       Authors       : Zhenhao Li, Miao Liu, Wenbin Chen, Ligang Zheng
+       Affiliations  : Zhenhao Li: N/A; Miao Liu: N/A; Wenbin Chen: N/A; Ligang Zheng: N/A
+    [PDF Download] Failed for https://rss.onlinelibrary.wiley.com/doi/am-pdf/10.1111/tgis.13059: 403 Client Error: Forbidden for url: https://rss.onlinelibrary.wiley.com/doi/am-pdf/10.1111/tgis.13059
+  [ 8] ✅ full text (arxiv) — Semantic similarity measure of natural language text through
+       Authors       : Yuanyuan Tian, Wenwen Li, Sizhe Wang, Zhining Gu
+       Affiliations  : Yuanyuan Tian: N/A; Wenwen Li: N/A; Sizhe Wang: N/A; Zhining Gu: N/A
+  [ 9] ✅ full text (arxiv) — Revisiting Training Strategies and Generalization Performanc
+       Authors       : Karsten Roth, Timo Milbich, Samarth Sinha, Prateek Gupta, B. Ommer, Joseph Paul Cohen
+       Affiliations  : Karsten Roth: N/A; Timo Milbich: N/A; Samarth Sinha: N/A; Prateek Gupta: N/A; B. Ommer: N/A; Joseph Paul Cohen: N/A
+    [Semantic Scholar PDF] Could not fetch 'Automatic Extractive Text Summarization of Hindi Text using ': 429 Client Error:  for url: https://api.semanticscholar.org/graph/v1/paper/search?query=Automatic+Extractive+Text+Summarization+of+Hindi+Text+using+Deep+learning+approach&fields=title%2Cabstract%2CopenAccessPdf&limit=1
+  [10] ❌ full text (abstract_only) — Automatic Extractive Text Summarization of Hindi Text using 
+       Authors       : Nandini Kapoor, Ayush Gupta, K. Meenakshi
+       Affiliations  : Nandini Kapoor: N/A; Ayush Gupta: N/A; K. Meenakshi: N/A
+    [arXiv] Could not fetch 'A New Deep Learning Method Based on Unsupervised Domain Adap': Page request resulted in HTTP 429 (https://export.arxiv.org/api/query?search_query=ti%3A%22A+New+Deep+Learning+Method+Based+on+Unsupervised+Domain+Adaptation+and+Re-ranking+in+Person+Re-identification%22&id_list=&sortBy=relevance&sortOrder=descending&start=0&max_results=100)
+    [Semantic Scholar PDF] Could not fetch 'A New Deep Learning Method Based on Unsupervised Domain Adap': 429 Client Error:  for url: https://api.semanticscholar.org/graph/v1/paper/search?query=A+New+Deep+Learning+Method+Based+on+Unsupervised+Domain+Adaptation+and+Re-ranking+in+Person+Re-identification&fields=title%2Cabstract%2CopenAccessPdf&limit=1
+  [11] ❌ full text (abstract_only) — A New Deep Learning Method Based on Unsupervised Domain Adap
+       Authors       : Chunhui Wang, Hua Han, Xiwu Shang, Xiaoli Zhao
+       Affiliations  : Chunhui Wang: N/A; Hua Han: N/A; Xiwu Shang: N/A; Xiaoli Zhao: N/A
+    [PDF Download] Failed for https://www.mdpi.com/2076-3417/11/18/8554/pdf: 403 Client Error: Forbidden for url: https://www.mdpi.com/2076-3417/11/18/8554/pdf
+    [arXiv] Could not fetch 'Revisiting Text Guide, a Truncation Method for Long Text Cla': Page request resulted in HTTP 503 (https://export.arxiv.org/api/query?search_query=ti%3A%22Revisiting+Text+Guide%2C+a+Truncation+Method+for+Long+Text+Classification%22&id_list=&sortBy=relevance&sortOrder=descending&start=0&max_results=100)
+    [Semantic Scholar PDF] Could not fetch 'Revisiting Text Guide, a Truncation Method for Long Text Cla': 429 Client Error:  for url: https://api.semanticscholar.org/graph/v1/paper/search?query=Revisiting+Text+Guide%2C+a+Truncation+Method+for+Long+Text+Classification&fields=title%2Cabstract%2CopenAccessPdf&limit=1
+  [12] ❌ full text (abstract_only) — Revisiting Text Guide, a Truncation Method for Long Text Cla
+       Authors       : K. Fiok, W. Karwowski, Edgar Gutiérrez, Mohammad Reza Davahli, Maciej Wilamowski, T. Ahram
+       Affiliations  : K. Fiok: N/A; W. Karwowski: N/A; Edgar Gutiérrez: N/A; Mohammad Reza Davahli: N/A; Maciej Wilamowski: N/A; T. Ahram: N/A
+  [13] ✅ full text (semantic_scholar_pdf) — A Deep Look into Neural Ranking Models for Information Retri
+       Authors       : J. Guo, Yixing Fan, Liang Pang, Liu Yang, Qingyao Ai, Hamed Zamani, Chen Wu, W. Bruce Croft, Xueqi Cheng
+       Affiliations  : J. Guo: N/A; Yixing Fan: N/A; Liang Pang: N/A; Liu Yang: N/A; Qingyao Ai: N/A; Hamed Zamani: N/A; Chen Wu: N/A; W. Bruce Croft: N/A; Xueqi Cheng: N/A
+    [Semantic Scholar PDF] Could not fetch 'Research on the Construction of a Multi-Behavior Recommendat': 429 Client Error:  for url: https://api.semanticscholar.org/graph/v1/paper/search?query=Research+on+the+Construction+of+a+Multi-Behavior+Recommendation+Algorithm+Model+for+E-Commerce+Platforms+Based+on+Deep+Learning&fields=title%2Cabstract%2CopenAccessPdf&limit=1
+  [14] ❌ full text (abstract_only) — Research on the Construction of a Multi-Behavior Recommendat
+       Authors       : Yu Chen, Yi Zhou
+       Affiliations  : Yu Chen: N/A; Yi Zhou: N/A
+    [Semantic Scholar PDF] Could not fetch 'Deep Ranking for COVID-19 Community QA': 429 Client Error:  for url: https://api.semanticscholar.org/graph/v1/paper/search?query=Deep+Ranking+for+COVID-19+Community+QA&fields=title%2Cabstract%2CopenAccessPdf&limit=1
+  [15] ❌ full text (abstract_only) — Deep Ranking for COVID-19 Community QA
+       Authors       : Amy Zhang, Albert Yao
+       Affiliations  : Amy Zhang: N/A; Albert Yao: N/A
+    [PDF Download] Failed for https://dl.acm.org/doi/pdf/10.1145/3331184.3331347: 403 Client Error: Forbidden for url: https://dl.acm.org/doi/pdf/10.1145/3331184.3331347
+    [Semantic Scholar PDF] Could not fetch 'Revisiting Approximate Metric Optimization in the Age of Dee': 429 Client Error:  for url: https://api.semanticscholar.org/graph/v1/paper/search?query=Revisiting+Approximate+Metric+Optimization+in+the+Age+of+Deep+Neural+Networks&fields=title%2Cabstract%2CopenAccessPdf&limit=1
+  [16] ❌ full text (abstract_only) — Revisiting Approximate Metric Optimization in the Age of Dee
+       Authors       : Sebastian Bruch, M. Zoghi, Michael Bendersky, Marc Najork
+       Affiliations  : Sebastian Bruch: N/A; M. Zoghi: N/A; Michael Bendersky: N/A; Marc Najork: N/A
+  [17] ✅ full text (semantic_scholar_pdf) — Response Ranking with Deep Matching Networks and External Kn
+       Authors       : Liu Yang, Minghui Qiu, Chen Qu, J. Guo, Yongfeng Zhang, W. Bruce Croft, Jun Huang, Haiqing Chen
+       Affiliations  : Liu Yang: N/A; Minghui Qiu: N/A; Chen Qu: N/A; J. Guo: N/A; Yongfeng Zhang: N/A; W. Bruce Croft: N/A; Jun Huang: N/A; Haiqing Chen: N/A
+    [Semantic Scholar PDF] Could not fetch 'Quartile Prediction and Journal Recommendation Using Deep Le': 429 Client Error:  for url: https://api.semanticscholar.org/graph/v1/paper/search?query=Quartile+Prediction+and+Journal+Recommendation+Using+Deep+Learning+Models+for+Artificial+Intelligence+Articles&fields=title%2Cabstract%2CopenAccessPdf&limit=1
+  [18] ❌ full text (abstract_only) — Quartile Prediction and Journal Recommendation Using Deep Le
+       Authors       : Fernando Aguilar Canto, Cesar Macias, Alberto Espinosa Juárez, M. A. Cardoso Moreno, Hiram Calvo
+       Affiliations  : Fernando Aguilar Canto: N/A; Cesar Macias: N/A; Alberto Espinosa Juárez: N/A; M. A. Cardoso Moreno: N/A; Hiram Calvo: N/A
+    [Semantic Scholar PDF] Could not fetch 'UvA-DARE (Digital Academic Repository) How Different are Pre': 429 Client Error:  for url: https://api.semanticscholar.org/graph/v1/paper/search?query=UvA-DARE+%28Digital+Academic+Repository%29+How+Different+are+Pre-trained+Transformers+for+Text+Ranking%3F&fields=title%2Cabstract%2CopenAccessPdf&limit=1
+    [Semantic Scholar] Rate limited (429); retrying in 1s...
+    [Semantic Scholar] Rate limited (429); retrying in 2s...
+    [Semantic Scholar] Rate limited (429); retrying in 4s...
+    [Semantic Scholar Abstract] Warning for 'UvA-DARE (Digital Academic Repository) How Different are Pre': Semantic Scholar request failed after retries
+  [19] ❌ full text (abstract_only) — UvA-DARE (Digital Academic Repository) How Different are Pre
+       Authors       : David Rau, J. Kamps
+       Affiliations  : David Rau: N/A; J. Kamps: N/A
+    [Semantic Scholar PDF] Could not fetch 'Integrating Deep Learning Techniques in Information Retrieva': 429 Client Error:  for url: https://api.semanticscholar.org/graph/v1/paper/search?query=Integrating+Deep+Learning+Techniques+in+Information+Retrieval%3A+A+Hybrid+Approach+to+Relevance+Optimization&fields=title%2Cabstract%2CopenAccessPdf&limit=1
+  [20] ❌ full text (abstract_only) — Integrating Deep Learning Techniques in Information Retrieva
+       Authors       : Anant Manish Singh, Divyanshu Brijendra Singh, Aditya Ratnesh Pandey, Maroof Rehan Siddiqui, Akash Pradeep Sharma, A. Khan
+       Affiliations  : Anant Manish Singh: N/A; Divyanshu Brijendra Singh: N/A; Aditya Ratnesh Pandey: N/A; Maroof Rehan Siddiqui: N/A; Akash Pradeep Sharma: N/A; A. Khan: N/A
+
+✅ Fetched 20 papers | Full text available: 7/20
+💾 Saved to 'data/papers_raw.csv'
+[Stage 0] Output shape: (20, 10)
+
+[Stage 1] Cross-encoder reranking (coarse)...
+
+============================================================
+STAGE 1 — Coarse ranking with cross-encoder reranker
+============================================================
+Query : "revisiting text ranking in deep research"
+Papers: 20 | Keeping top: 10
+  ⚠️  2 papers have no abstract — scoring on title only.
+Loading reranker : BAAI/bge-reranker-v2-m3
+Scoring 20 (query, document) pairs...
+
+────────────────────────────────────────────────────────────
+Rank     Score  Source                  Title
+────────────────────────────────────────────────────────────
+  [ 1]  0.9972  arxiv                   Revisiting Text Ranking in Deep Research
+  [ 2]  0.5769  abstract_only           Revisiting Approximate Metric Optimization in the Age o
+  [ 3]  0.5172  abstract_only           Revisiting Text Guide, a Truncation Method for Long Tex
+  [ 4]  0.3610  semantic_scholar_pdf    A Deep Look into Neural Ranking Models for Information 
+  [ 5]  0.3406  abstract_only           Deep Ranking for COVID-19 Community QA
+  [ 6]  0.2674  semantic_scholar_pdf    Response Ranking with Deep Matching Networks and Extern
+  [ 7]  0.2438  arxiv                   Deep Research Comparator: A Platform For Fine-grained H
+  [ 8]  0.1566  arxiv                   MiroEval: Benchmarking Multimodal Deep Research Agents 
+  [ 9]  0.1005  arxiv                   Revisiting Training Strategies and Generalization Perfo
+  [10]  0.0852  abstract_only           Integrating Deep Learning Techniques in Information Ret
+────────────────────────────────────────────────────────────
+
+✅ Stage 1 complete — kept top 10 papers.
+   Full text available in top-10: 6/10
+💾 Saved to 'data/papers_stage1.csv'
+[Stage 1] Output shape: (10, 12)
+
+[Stage 2] LLM-based listwise ranking and rationale extraction...
+
+============================================================
+STAGE 2 — Fine ranking with LLM (listwise)
+============================================================
+Input text mode : full_text
+Papers with full text : 6/10
+  ℹ️  4 papers will use abstract as fallback.
+Loading LLM : Qwen/Qwen2.5-7B-Instruct
+Prompt length : 155555 tokens
+  ⚠️  Prompt is very long (155555 tokens). Consider switching config.STAGE2_INPUT_TEXT to 'abstract'.
+Running LLM inference...

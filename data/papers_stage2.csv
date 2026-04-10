@@ -1,0 +1,4693 @@
+"rank_original","title","year","venue","authors","citations","abstract","full_text","pdf_url","text_source","stage1_score","stage1_rank","stage2_rank","stage2_score","stage2_rationale"
+"3","MultiTabQA: Generating Tabular Answers for Multi-Table Question Answering","2023","Annual Meeting of the Association for Computational Linguistics","Vaishali Pal, Andrew Yates, E. Kanoulas, M. de Rijke","50","Recent advances in tabular question answering (QA) with large language models are constrained in their coverage and only answer questions over a single table. However, real-world queries are complex in nature, often over multiple tables in a relational database or web page. Single table questions do not involve common table operations such as set operations, Cartesian products (joins), or nested queries. Furthermore, multi-table operations often result in a tabular output, which necessitates table generation capabilities of tabular QA models. To fill this gap, we propose a new task of answering questions over multiple tables. Our model, MultiTabQA, not only answers questions over multiple tables, but also generalizes to generate tabular answers. To enable effective training, we build a pre-training dataset comprising of 132,645 SQL queries and tabular answers. Further, we evaluate the generated tables by introducing table-specific metrics of varying strictness assessing various levels of granularity of the table structure. MultiTabQA outperforms state-of-the-art single table QA models adapted to a multi-table QA setting by finetuning on three datasets: Spider, Atis and GeoQuery.","Proceedings of the 61st Annual Meeting of the Association for Computational Linguistics
+Volume 1: Long Papers, pages 6322–6334
+July 9-14, 2023 ©2023 Association for Computational Linguistics
+MultiTabQA: Generating Tabular Answers
+for Multi-Table Question Answering
+Vaishali Pal1,2
+Andrew Yates1
+Evangelos Kanoulas1
+Maarten de Rijke1
+1University of Amsterdam, The Netherlands
+2Discovery Lab, Elsevier, The Netherlands
+v.pal, a.c.yates, e.kanoulas, m.derijke@uva.nl
+Abstract
+Recent advances in tabular question answer-
+ing (QA) with large language models are con-
+strained in their coverage and only answer ques-
+tions over a single table. However, real-world
+queries are complex in nature, often over multi-
+ple tables in a relational database or web page.
+Single table questions do not involve common
+table operations such as set operations, Carte-
+sian products (joins), or nested queries. Fur-
+thermore, multi-table operations often result in
+a tabular output, which necessitates table gen-
+eration capabilities of tabular QA models. To
+fill this gap, we propose a new task of answer-
+ing questions over multiple tables. Our model,
+MultiTabQA, not only answers questions over
+multiple tables, but also generalizes to generate
+tabular answers. To enable effective training,
+we build a pre-training dataset comprising of
+132,645 SQL queries and tabular answers. Fur-
+ther, we evaluate the generated tables by intro-
+ducing table-specific metrics of varying strict-
+ness assessing various levels of granularity of
+the table structure. MultiTabQA outperforms
+state-of-the-art single table QA models adapted
+to a multi-table QA setting by finetuning on
+three datasets: Spider, Atis and GeoQuery.
+1
+Introduction
+Question answering (QA) over multiple tables aims
+to provide exact answers to natural language ques-
+tions with evidence from one or more tables (Jin
+et al., 2022). This is in contrast to single-table QA,
+which has been the focus of tabular QA research to
+date (Liu et al., 2021; Nan et al., 2021; Zhu et al.,
+2021; Herzig et al., 2020). Even though groups
+of related tables are ubiquitous in real-world cor-
+pora, such as relational databases or tables in a web
+page, multi-table QA remains a largely unexplored
+area. To address this gap, we propose a new task
+of answering questions over multiple tables. Our
+multi-table QA model, MultiTabQA,1 addresses
+1Code and data are at:
+https://github.com/
+kolk/MultiTabQA
+	
+SELECT zip_code FROM weather GROUP BY zip_code HAVING avg 
+( mean_humidity ) < 70  INTERSECT
+	
+SELECT zip_code FROM trip GROUP BY zip_code HAVING count ( * ) >= 200
+Weather
+cloud_cover min_humidity
+zip_code
+trip
+duration
+end_date
+zip_code
+What is the zip code of trips made which are above 200 with humidity   
+        below 70
+Multi-Table
+QA
+97010
+92231
+zip_code
+Figure 1: Multi-table QA. The QA model generates a
+tabular answer from either a natural language question
+or an SQL query and one or more tables as input context.
+novel challenges introduced by multi-table context.
+These include complex queries involving chains of
+reasoning, disambiguation of relevant table names
+at each reasoning step, and generating a final table
+as answer. It also leads to novel question-types
+that are unnatural in a single-table setting. For in-
+stance, questions involving operations specific to
+multiple tables, such as Cartesian products (outer
+joins, inner joins) and set operations (such as in-
+tersect, union, in), are unique to and common in a
+multi-table scenario. Furthermore, such multi-table
+operations often result in a tabular answer and they
+necessitate table generation capabilities of the QA
+model.
+Figure 1 depicts an example of a question in-
+volving two tables, I would like to know the zip
+code of trips taken above 200 with humidity be-
+low 70, and its associated input tables, Weather
+and trip. A multi-table QA model is expected
+to disambiguate records from different tables (the
+question phrase zip code of trips grounds the col-
+umn zip_code of Table trip; the question phrase
+humidity below 70 grounds column min_humidity
+of Table Weather), learn associations among inter-
+table columns (zip_code in both tables) and intra-
+table columns (min_humidity and zip_code in the
+Weather table), and finally compute the required op-
+erations (intersect, count) and generate the tabular
+answer.
+Recent work on tabular QA can be catego-
+rized into two major directions: (i) Semantic pars-
+ing-based techniques (Pasupat and Liang, 2015;
+6322
+
+Zhong et al., 2017; Cai et al., 2022), which have
+been the dominant approach to answering multi-
+-table complex questions. Such methods transform
+a natural question to a logical form, which is used
+to query a relational database to extract the answer.
+However, these techniques are restricted to rela-
+tional databases and cannot be applied to tables
+from other sources such over web tables, tables
+in text documents, and any non-normalized tables.
+Additionally, they require expensive and expert hu-
+man annotations (Yu et al., 2018; Lee et al., 2021)
+formulating SQL queries from natural questions.
+(ii) Modeling the problem as a sequence gener-
+ation/classification task (Yin et al., 2020; Zhang
+et al., 2020; Herzig et al., 2020; Zhu et al., 2021;
+Liu et al., 2021; Cheng et al., 2021b; Nan et al.,
+2021; Ma et al., 2022; Pal et al., 2022; Jin et al.,
+2022), where an end-to-end trained neural model
+is not only responsible for question/query under-
+standing but also table reasoning. Existing end–
+to-end neural models are either classification-based
+(Herzig et al., 2020; Zhu et al., 2021), where the
+model detects the answer span and classifies one
+table operator associated with the span, or they
+are sequence generation-based (Nan et al., 2021;
+Zhang et al., 2020; Liu et al., 2021), where the
+model generates the answer as a span of text in an
+auto-regressive manner.
+Our work focuses on the latter direction of re-
+search. We train a neural model to mimic a seman-
+tic parser and generate the answer. A clear distinc-
+tion of our work compared to existing end-to-end
+models is that our proposed model, MultiTabQA,
+does not operate in the constrained setting of a sin-
+gle input table, but can accommodate one or more
+tables in the input and the associated multi-table
+operators. Additionally, MultiTabQA performs the
+task of structured table generation, which imposes
+structure aspects to the generated output such as
+table schemas, alignments of rows and columns,
+relationships between column-headers and column
+values. Generating structured tables as output re-
+quires table-specific evaluation metrics which we
+define and use to evaluate the generated tables.
+To effectively train the model, we generate a pre-
+training dataset with multi-table SQL queries and
+tabular answers built over an existing semantic pars-
+ing dataset, Spider (Yu et al., 2018). Our dataset
+consists of 132, 645 samples comprising of SQL
+queries, associated natural language questions, in-
+put tables, and tabular answers. To the best of our
+knowledge, this is the first work to address the task
+of multi-table QA and generate tabular output.
+Our main contributions can be summarized as:
+(1) We fill-in the gap of existing tabular QA meth-
+ods, which operate only on single tables, by
+proposing a new task of answering questions
+over multiple tables. Our work increases the
+breadth of question types that can be handled
+by single tabular QA methods.
+(2) Our proposed multi-table QA model generates
+structured tables imposed by multi-table opera-
+tions. Table generation introduces generation
+challenges such as maintaining row-column
+alignment, table-header generation, etc.
+(3) We release a multi-table pre-training dataset
+comprising of 132, 645 samples of SQL
+queries and tabular answers.
+(4) We introduce table generation metrics that cap-
+ture different levels of granularity and strict-
+ness to evaluate our proposed model.
+2
+Methodology
+We frame multi-table question answering as a
+sequence-to-sequence task and train an auto-
+regressive transformer encoder-decoder model to
+generate the tabular answer. Given a question Q
+consisting of a sequence of k tokens q1, q2, . . . , qk
+and a set of N tables, TN = {t1, t2, . . . , tn}, the
+goal of the multi-table QA model is to perform
+chains of operations over TN, constrained by Q,
+and generate a table Tout. The model always gen-
+erates a table, Tout, which can be single celled for
+scalar answers, single rowed or columned for list-
+based answers, and multiple rows and columns for
+tabular answers. In all cases, the model also gener-
+ates column headers revealing important semantics
+associated with the generated values.
+Training approach.
+We follow a curriculum
+learning approach (Bengio et al., 2009) by sequen-
+tially increasing the complexity of tasks to train
+MultiTabQA. The first stage of training is a pre-
+training step where the training objective is two-
+fold: (i) learn to generate correct tabular answers
+from SQL, and (ii) understand the associations be-
+tween related input tables. The final training stage
+is fine-tuning where the model learns to understand
+natural language questions with their inherent ambi-
+guity in addition to retaining its ability of reasoning
+over tables and generating a tabular answer. We
+discuss the training process in detail in Section 4.
+6323
+
+...
+MultiTabQA (Seq2Seq)
+question
+question/query
+input table 1
+table 1 name
+table 1 rows
+input table 2
+col
+:
+table 1 header
+table 2 name
+...
+:
+<table_name>
+q1
+q2
+n1
+... col
+h1
+... row 1
+r11
+|
+h2
+:
+:
+|
+r12
+row k
+rk1
+|
+rk2
+<table_name>
+n1 ...
+h1
+h2
+|
+...
+|
+ht
+row 1
+:
+r11
+r12
+|
+...
+row t
+rt1
+rt2
+|
+|
+r1m
+...
+|
+rtm
+...
+answer table
+row 1 
+row 2
+answer table header
+col
+: ...
+table 2 header
+Figure 2: Architecture of MultiTabQA model. Given a natural language question/SQL query and the associated
+tables as an input sequence, the seq2seq model performs tabular reasoning and generates a tabular answer. Start of
+an input table is identified with keyword <table_name> which also indicates that the next tokens comprises the
+table name. col: indicates that the next tokens are table headers. Rows in a table are identified with keyword row i:,
+columns are separated by |.
+Model input/output.
+The input to the model
+is a sequence comprised of the query or the
+natural language question, followed by a se-
+quence of input tables, represented by the ta-
+ble name and the corresponding flattened ta-
+ble. Table names are important for disambiguat-
+ing tables in multi-table QA setting.
+Specif-
+ically, the input sequence is represented as
+question [table1 rep] [table2 rep] . . . [tablen rep]
+where [tablei rep] is the representation of the i-th
+table. As depicted in Figure 2, the i-th table is
+flattened in row-major format and represented as
+<table_name>: n1 n2 | col: h1 | h2 | . . . | hk
+row 1: r1
+1 | . . . | rm
+1 . . . row k: r1
+k | . . . | rm
+k ,
+where n1, . . . , n2 is the sequence of table name
+tokens, hj is j-th column header, ri
+m is the i-th
+row and m-th column cell. The boldface words are
+keywords specifying semantics of the next tokens.
+The output of the model is also a flattened table in
+row-major format, i.e., [tableans rep], but without
+a table name. As depicted in Figure 2, the generated
+table, [tableans rep], is of the form:
+col: h1 | h2 | . . . | hk row 1: r1
+1 | . . . | rm
+1
+row 2: r1
+2 | . . . | rm
+2 . . . row k: r1
+k | . . . | rm
+k .
+3
+Dataset
+To effectively train a multi-table QA model, the
+dataset needs to cover three aspects: (i) multi-table
+context, (ii) tabular answers, and (iii) natural ques-
+tions. Given the absence of large-scale datasets
+covering all three aspects, we transform existing
+semantic parsing and single-table QA datasets to fo-
+cus on a single aspect before training with samples
+covering all three aspects.
+3.1
+Single table pre-training dataset
+One of the sub-tasks of pre-training is to gener-
+ate tabular answers. We hypothesize that tuning
+the model to generate tables may lead to a warm-
+start and better convergence in a multi-table QA
+setting. To enable such experiments, we modify
+the large-scale single-table QA Tapex pre-training
+dataset (Liu et al., 2021) to accommodate tabular
+answers. The dataset contains 1, 834, 419 samples
+of query, input table and factoid answers. The ta-
+bles in the dataset are not named as there is no
+need for table disambiguation in a single table set-
+ting. The SQL queries are semi-formal (do not
+contain the FROM clause with a table name) and
+cannot be used to query a real SQL database. We
+insert a placeholder table name in the queries and
+the corresponding input tables to extract the tab-
+ular answer from the database. Transforming the
+factoid answers to tables leads to single-celled or
+single-rowed tables. The modified dataset helps the
+model to understand simple tables and reason over
+semi-formal queries to generate simple tables.
+3.2
+Multi-table pre-training dataset
+We develop a multi-table pre-training dataset over
+the database of Spider (Yu et al., 2018). Spider is
+a cross-domain complex semantic parsing dataset
+for text-to-SQL translation. It consists of 10, 181
+questions and 5, 693 SQL queries. The questions
+are over 200 databases of multiple tables covering
+138 different domains. The training, development
+and test splits do not contain overlapping databases
+to test a model’s generalizability to new databases.
+We first adapt the existing samples of Spider for
+our task. We use the ground-truth SQL queries of
+Spider as input query for pre-training over multi-
+ple tables. We automatically extract all input table
+6324
+
+names from the SQL query and retrieve the input
+tables2 from the relational database. The query, ex-
+tracted table names, and retrieved tables are inputs
+to our multi-table QA model. We extract the answer
+table with the SQL query by querying the relational
+database. Answer table headers reveal important
+semantics of the associated column values such
+as the numeric operation (average, sum, etc.), nu-
+meric scales (million, thousand, kms, meters, etc.),
+or entity facets (name, date, etc.). This process gen-
+erates 3816 samples comprising of query, question,
+table_names, tables and answer.
+We further augment the modified Spider dataset
+with 132, 645 samples of synthetic queries. This
+leads to an augmented multi-table pre-training
+dataset of 136, 461 unique training samples com-
+prising of 3816 Spider samples and 132, 645 syn-
+thetic samples. The validation set comprises of
+536 samples from the Spider validation set pre-
+processed as described above to adapt to our task.
+Existing work on semantic parsing (Shi et al.,
+2020; Yu et al., 2021) have utilized hand-crafted
+templates to generate large-scale corpora of syn-
+thetic queries, but are constrained in their coverage
+with no multi-table operations (Shi et al., 2020) or
+limited coverage with no table joins and lacking di-
+versity in set operations (Yu et al., 2021). This mo-
+tivates us to generate our augmented pre-training
+dataset for multi-table QA using multi-table SQL
+templates.
+Our synthetic queries are generated from 45 man-
+ually crafted templates over the Spider database
+and hand-crafted rules for operation types. The
+query templates have placeholders for aggrega-
+tion, relational operations, table name and head-
+ers which are randomly assigned during query
+generation process.
+For example, to generate
+multi-table join queries, we instantiate the tem-
+plates by randomly choosing tables from a database
+with at least one common header.
+For set op-
+erations, all tables participating in a multi-table
+query requires all table headers to match. We de-
+sign SQL templates in increasing order of com-
+plexity starting with simple SQL templates and
+progressively adding components which increases
+its complexity.
+For example, for single-table
+queries, we use the simplest template “SELECT *
+FROM {table_name}” whereas for multi-table tem-
+plates such as joins, the simplest template is “SE-
+LECT T1.{table1_cols}, T2.{table2_cols} FROM
+2We use SQLite3 and pandas for extracting tables.
+{table_name1} as T1 JOIN {table_name2} as T2
+ON T1.{common_col} = T2.{common_col}”. We
+progressively add SQL components such as aggre-
+gations, where conditions, group by and having
+clauses to generate templates of increasing com-
+plexity. This process results in 14 templates for
+joins, 4 templates for each set operation: intersect,
+union and except. To avoid catastrophic forget-
+ting for single table queries, we also instantiate 14
+single-table queries with increasing complexity.
+Quality control.
+We ensure correctness of the
+synthetic samples by discarding SQL queries that
+executes to an error or empty table. We also ap-
+ply the process on the modified Spider, Atis and
+GeoQuery data to discard SQL query and the corre-
+sponding natural language question to ensure that
+all questions are answerable.
+3.3
+Multi-table QA dataset
+We fine-tune and evaluate our model on the natural
+language questions of semantic parsing datasets:
+Spider, GeoQuery (Zelle and Mooney, 1996), and
+Atis (Price, 1990; Dahl et al., 1994). GeoQuery is
+a semantic parsing dataset to query into a database
+of United States geography.3 Atis is a semantic
+parsing dataset4 with a collection of 4, 379 ques-
+tions, corresponding SQL queries and a relational
+database to a flight booking system (Iyer et al.,
+2017). Similar to the Spider dataset processing
+described in Section 3.2, we first extract the input
+table names from the available SQL queries and
+query the relational database for the input tables.5
+We also extract the tabular answers using the SQL
+queries. We discard any samples that executes to
+an error or empty table. We use the corresponding
+natural language question for each SQL query as
+the user utterance for fine-tuning. This results in
+6, 715 training samples and 985 validation samples
+for Spider. We also process the 600 GeoQuery
+samples provided in (Iyer et al., 2017) to create a
+subset of 530 training samples, 49 validation sam-
+ples and 253 test samples. We process and generate
+an Atis subset of 384 training samples, 45 evalua-
+tion samples and 86 test samples. We discard Atis
+queries with very large input tables (with > 10, 000
+rows). This restriction enables us to correctly eval-
+uate question answering capabilities of a model by
+3This data is made available under under GPL 2.0 license.
+4This data is made available under MIT license.
+5We preprocess the Atis and GeoQuery data samples avail-
+able at https://github.com/sriniiyer/nl2sql/
+tree/master/data.
+6325
+
+Augmented Dataset
+Tapex-Pretraining
+Corpus 
+Spider-SQL
+Synthetic SQL
+ (our data)
+Pre-Training
+Single
+table
+Context
+Table
+Output
+SQL queries
+Multi-table Context
+Tabular Output
+Stage 2
+Stage 3
+Stage 1
+Multi-table Context
+Table Output
+Natural Language 
+Questions
+Fine-tuning
+Figure 3: Four stage training procedure. The first three
+stages are pre-training, followed by fine-tuning.
+ignoring samples with truncated input sequences
+including entire input tables from the second table
+onward. Truncation of tables leads to incorrect an-
+swers for any numeric operation such as average,
+intersect and the evaluation scores would no longer
+reflect reasoning capabilities of the model.
+4
+Training
+We follow a curriculum learning approach by
+sequentially training the model on sub-tasks of
+increasing complexity as depicted in Figure 3.
+Broadly, we first pre-train the seq2seq model to
+mimic a SQL parser and further fine-tune it on
+the downstream multi-table QA task. Pre-training
+the model on unambiguous SQL queries leads to
+better convergence and warm-start for the closely
+related downstream multi-table QA task. We fur-
+ther segregate the pre-training by first addressing
+the simpler sub-task of generating tables from sin-
+gle table queries. This is immediately followed by
+pre-training on multi-table query answering where
+complex SQL queries are utilized to train the model
+to learn multi-table associations from unambiguous
+complex queries, reason over the tables and gener-
+ate tabular answer. The final stage of training is the
+downstream multi-table QA from natural language
+questions. Natural language introduces ambiguity,
+ellipses and co-references which increases com-
+plexity and is thus the final stage of training. For
+each stage, we choose the model with the best table
+exact match accuracy on the corresponding valida-
+tion set, defined in Section 5, as the initialization
+for training the next stage.
+4.1
+Pre-training
+Pre-training of MultiTabQA is conducted in two
+stages in a curriculum learning fashion: Stage 1 is
+single table QA where the model learns to generate
+tabular answers from relatively simple SQL queries.
+Stage 2 is multi-table QA where the model trained
+in Stage 1 is further tuned for multi-table SQL QA.
+Stage 1.
+We first train MultiTabQA on the task
+of generating tables from SQL queries over single
+tables. The tabular answer to be generated is simple
+and single-columned. For this stage, we use the
+modified Tapex pre-training corpus described in
+Section 3.1. We train the model on 1, 834, 419
+samples for two epochs. This stage provides a
+good initialization for multi-table QA in the next
+stages.
+Stage 2 + Stage 3.
+We further pre-train the model
+on multi-table QA. For this, we tune our model on
+SQL queries from the modified Spider and syn-
+thetic dataset. We tune with only the modified Spi-
+der SQL samples Stage 2, and tuning with only the
+synthetic dataset Stage 3. We utilize the larger aug-
+mented dataset comprising of the modified Spider
+SQL (Stage 2) and our synthetic samples (Stage 3)
+as described in Section 3.2 to train the final pre-
+trained model for 30 epochs. We call this setting
+Stage 2+3. We compare these three multi-table
+pre-training settings in Section 6.
+4.2
+Fine-tuning
+The final stage of training is fine-tuning the pre-
+trained model on natural language questions. Nat-
+ural questions are ambiguous compared to formal
+SQL and used at the last stage of training. We fine-
+tune the pre-trained model on the 6, 715 natural
+questions, extracted input and output tables for Spi-
+der as described in Section 3 and evaluate on 985
+samples of the validation set. To observe the perfor-
+mance of the pre-trained model on out-of-domain
+database tables, we also fine-tune the pre-trained
+model on Atis and GeoQuery datasets. For all the
+fine-tuning datasets, we train for 60 epochs.
+5
+Evaluation metrics
+While denotation accuracy has been widely used in
+semantic parsing (Pasupat and Liang, 2015; Zhong
+et al., 2017; Cai et al., 2022), it is not directly ap-
+plicable for our task where tabular input encoding,
+reasoning, and generation are performed by the
+same model. Evaluating the answer table not only
+requires matching the generated values but also the
+table structure. Moreover, tables store factual in-
+formation such as named entities, dates, numbers,
+etc in an ordered manner. This makes lexical met-
+rics measuring surface form overlap more suitable
+than semantic metrics measuring the underlying
+meaning of paraphrased sequences. Moreover, ta-
+ble components such as rows, columns and cells
+6326
+
+Dataset
+Model
+Table
+EM (%)
+Row EM (%)
+Column EM (%)
+Cell EM (%)
+P
+R
+F1
+P
+R
+F1
+P
+R
+F1
+Spider
+tapex-base
+18.99
+17.28
+19.83
+18.27
+19.75
+19.39
+19.57
+23.15
+27.71
+25.03
+MultiTabQA
+25.19*
+22.88† 24.64* 23.70* 26.86* 26.76* 26.81* 28.07†
+31.23*
+29.55*
+GeoQ
+tapex-base
+39.84
+22.43
+30.74
+24.89
+39.48
+39.76
+39.62
+21.98
+30.88
+24.67
+MultiTabQA
+52.22*
+72.39* 46.90* 41.38* 52.10* 52.22* 52.16* 37.16† 46.92*
+41.33*
+Atis
+tapex-base
+72.20
+57.07† 57.69
+55.08
+72.20† 72.20
+72.20
+57.07†
+57.69
+54.48
+MultiTabQA
+73.88†
+38.29
+92.19* 54.36
+69.55
+75.24† 72.29
+38.16
+92.56*
+54.16
+Table 1: Average scores of models fine-tuned on 5 different seeds with Multitable-Natural Questions (NQ) datasets.
+tapex-base is used as baseline while MultiTabQA is our fine-tuned model. Table EM indicates table exact
+match accuracy. For all other table units (row, column, and cell), P is Precision, R is Recall, and F1 is F1 score for
+exact match metric. An (*) denotes significance at p < 0.005 and an (†) denotes a significance at p < 0.05 for t-test.
+are standalone units which capture different levels
+of semantics and relationships with the surround-
+ing table component. For example, rows capture
+data records while columns capture the features
+of each record. Cells capture the lowest level of
+self-contained facts and requires complete match
+with the target. For example, a cell with the entity
+“United Kingdom” should not be partially matched
+with the predictions “United Nation”, “United”
+or “Kingdom”. Similarly, a numeric value such
+as “123.45” should not be partially matched with
+“12.45”, “23.45” or “12”. Numeracy pose a chal-
+lenge to seq2seq models (Nogueira et al., 2021; Pal
+and Baral, 2021), especially in the extrapolation
+setting where semantic match of unseen numbers
+may not be an ideal. Considering all these fac-
+tors, we focus on lexical match to measure model
+effectiveness.
+Table exact match.
+We define table exact match
+Accuracy (Table EM) as the percentage of pre-
+dicted tables which exactly matches the target ta-
+bles. Table exact match evaluates ordering of rows,
+columns and table headers and exact lexical match-
+ing of table values. It is a strict binary measure
+which treats partial matches as incorrect. How-
+ever, many queries do not impose ordering among
+columns or rows, and strict table exact match may
+not be the ideal indication of model efficacy. To
+measure partial correctness, we treat rows, columns
+and cells as units at varying levels of granularity
+which have ordered associations among the values
+within the unit. We evaluate partial correctness
+with exact match of rows, columns and cells.
+Row exact match.
+To relax the strict criterion
+of table exact match, we first measure correctness
+on table rows. Row exact match does not consider
+ordering of rows in the generated table but requires
+ordering of values within the row. We define a
+correctly generated row to be a predicted row that
+exactly matches any target rows in the target table.
+Row exact match precision is the percentage of
+correctly generated rows among all the predicted
+rows in the evaluation dataset. Row exact match
+recall is the percentage of correctly generated rows
+among all the target rows in the evaluation dataset.
+Column exact match.
+Unlike rows, which repre-
+sent records in relational databases, columns rep-
+resent attributes where column header provides se-
+mantic meaning to the values. Hence, a correct
+column is defined as a generated column that first
+exactly matches a target column header and further
+the column values. Column exact match measures
+ordering of values within a column. Column exact
+match precision is the percentage of correctly gen-
+erated columns among all generated columns in the
+evaluation set. Column exact match recall is the
+percentage of correctly generated columns among
+all target columns in the evaluation set.
+Cell exact match.
+Cell exact match is the most
+relaxed measure of model efficacy at the lowest
+level of granularity (cells) where table structure is
+not measured. A cell is correct if it matches any cell
+in the corresponding target table. Cell exact match
+precision is the percentage of correctly predicted
+cells among all predicted cells in the dataset. Cell
+exact match recall is the percentage of correctly
+predicted cells among all target cells in the dataset.
+6
+Experimental setup and results
+We use tapex-base (Liu et al., 2021) as the base
+model for all our experiments. tapex-base is
+a single table question answering model (140M
+parameters) trained to approximate table reasoning
+by pre-training to mimic an SQL parser. For both
+the pre-training and fine-tuning process, we use a
+batch size of 8 and gradient accumulation of 32 to
+6327
+
+Epochs
+Table EM
+0
+5
+10
+15
+20
+25
+5
+10
+15
+20
+25
+30
+MultiTabQA
+tapex 
+Figure 4:
+Validation table exact match scores of
+MultiTabQA vs. tapex-base on Spider evaluation
+set natural language questions during fine-tuning. The
+points are highest validation scores for each model.
+emulate an effective batch size of 256, a learning
+rate is 1e−9. The maximum sequence length of
+both encoder and decoder is set to 1024. We run all
+our pre-training experiments on four A6000 48GB
+GPUs and fine-tuning on one A6000 GPU.
+We observe from Figure 4 that the three stage
+pre-training leads to a warm-start for fine-tuning
+and better convergence compared to the base-
+line tapex-base.
+For our experiments, we
+compare the effectiveness of the MultiTabQA
+model with fine-tuned tapex-base on the 6, 715
+natural questions from Spider.
+The fine-tuned
+tapex-base acts as baseline for studying the
+adaptability of state-of-the-art single table model
+to a multi-table setting. We report the mean scores
+of 5 training runs initialized with different seeds
+in Table 1. We conduct statistical significance test
+(t-test) on the mean scores of the 5 runs and re-
+port the significance with p < 0.05 and p < 0.005.
+We observe that our multi-stage training process
+leads to improvement in scores on all table exact
+match accuracy across all datasets compared to
+fine-tuned tapex-base. The difference in table
+exact match is highest for GeoQuery where Mul-
+tiTabQA outperforms tapex-base by 12.38%,
+Spider by 6.20% and Atis by 1.68%. For F1 and
+Recall scores on row, column and cell exact match,
+a similar pattern is observed where MultiTabQA
+outperforms tapex-base on all datasets. Multi-
+TabQA outperforms tapex-base by 5.43% on
+row F1, 7.24% on column F1, and 4.52% on cell
+F1 for Spider. On GeoQuery, MultiTabQA outper-
+forms by 16.49% on row F1, 12.54% on column
+F1 and 16.66% on cell F1 scores. All results on
+Spider and GeoQuery are significant with a p-value
+less than a critical value of 0.05 indicating strong
+evidence that MultiTabQA is a superior model. On
+Atis, we observe that MultiTabQA underperforms
+on precision but outperforms on recall by a large
+margin. The difference in recall is larger than pre-
+cision indicating that MultiTabQA generates more
+target rows, columns and cells of Atis correctly
+(higher recall) and hallucinates spurious rows and
+cells (lower precision). However, the F1 scores are
+better for MultiTabQA. tapex-base is unable to
+correctly generate target rows, cells and columns
+(lower recall), but the few generated ones are cor-
+rect (higher precision). The low number of test
+samples (85) of Atis and variations in the halluci-
+nations in different runs makes the precision scores
+statistically non-significant. However, the recall
+scores provide very strong evidence (p < 0.005)
+of the superiority of MultiTabQA in generating
+correct table units compared to tapex-base.
+Qualitative analysis.
+Multi-table QA models
+must perform numeric reasoning, understand multi-
+table schemas and comprehend natural language. A
+success case also depicts this. For the question how
+many likes does kyle have? with 2 input tables:
+highschooler
+id
+name
+grade
+1510
+jordan
+9
+. . .
+. . .
+. . .
+1934
+kyle
+12
+1661
+logan
+12
+likes
+student_id
+like_id
+1689
+1709
+. . .
+. . .
+1501
+1934
+1934
+1501
+with
+target:
+count(*)
+1
+and prediction:
+count(*)
+1
+,
+MultiTabQA identifies inter-table association of
+column id of table highschooler and column stu-
+dent_id of table likes. It correctly disambiguates
+the lexical occurrence of 1934 in columns like_id
+and student_id and correctly performs count.
+A failure case also illustrates the challenges: for
+the question find the average weight for each pet
+type with input table:
+PetID
+PetType
+pet_age
+weight
+2001
+cat
+3
+12.0
+2002
+dog
+2
+13.4
+2003
+dog
+1
+9.3
+with
+target:
+avg(weight)
+PetType
+12.0
+cat
+11.35
+dog
+and
+prediction:
+PetType
+avg(weight)
+cat
+12.0
+dog
+13.4
+,
+MultiTabQA swaps the ordering of the 2 columns
+and fails to compute average leading to an incorrect
+measure by table exact match. The column, row
+and cell metrics (precision, recall and F1) measure
+6328
+
+Pre-training
+stages
+Query
+type
+Table
+EM(%)
+Row (%)
+Column (%)
+Cell (%)
+P
+R
+F1
+P
+R
+F1
+P
+R
+F1
+2
+SQL
+21.46
+18.60
+18.88
+18.74
+21.98
+21.90
+21.94
+24.19
+25.89
+25.01
+1+2
+20.52
+14.13
+20.06
+16.58
+18.87
+20.87
+19.82
+19.24
+25.83
+22.05
+1+2+3
+29.10
+23.15
+25.62
+24.32
+31.66
+31.50
+31.58
+29.95
+32.92
+31.36
+2
+NL
+19.41
+16.51
+19.48
+17.87
+20.13
+20.11
+20.12
+21.12
+26.55
+23.52
+1+2
+20.12
+11.67
+21.09
+15.03
+19.54
+19.97
+19.76
+16.26
+29.22
+20.90
+1+2+3
+24.49
+24.95
+24.87
+24.91
+26.80
+26.91
+26.86
+28.44
+31.06
+29.69
+Table 2: Ablation on datasets in our multi-stage pre-training processes for 1 run of experiments. The two sections
+show scores for different question types: SQL queries (top) and natural language (NL) questions (bottom). In a
+section each row shows a training process with different stages: Pre-training on Stage 2, pre-training on Stages 1+2,
+and all pre-training Stages 1+2+3. Table EM is table exact match accuracy; P is Precision; R is Recall; and F1 is F1
+score for exact match of row, column, and cell.
+36.15
+10.38
+1.79
+27.34
+6.01
+1.79
+1 table
+2 tables
+3 tables
+MultiTabQA
+tapex
+(a) Table EM Accuracy
+27.39
+20.11
+33.11
+17.28
+17.55
+25.67
+1 table
+2 tables
+3 tables
+(b) Row EM F1
+40.18
+11.49
+1.27
+29.48
+5.45
+1.26
+1 table
+2 tables
+3 tables
+(c) Column EM F1
+30.97
+26.74
+39.45
+23.49
+24.27
+31.9
+1 table
+2 tables
+3 tables
+(d) Cell EM F1
+Figure 5: Evaluation results on Spider evaluation sam-
+ples segregated by number of input tables.
+correctness of individual table units without mea-
+suring the ordering. Column metrics measure pre-
+dicted column PetType as correct and avg(weight)
+as incorrect without measuring ordering of the 2
+columns. Row cat | 12.0 is measured as correct,
+while dog | 13.4 is measured incorrect without mea-
+suring the ordering among them. Out of the 4 target
+cells, cat, dog, 12.0 are measured as correct.
+Impact of the number of input tables.
+The num-
+ber of input tables increases the complexity of the
+questions and directly impacts the effectiveness of
+the models. We segregate evaluation on Spider val-
+idation set on the basis of number of input tables
+and compare the results to study the impact of input
+table number. We observe from Figure 5 that effec-
+tiveness reduces as the number of tables increases
+for both MultiTabQA and tapex-base. How-
+ever, MultiTabQA fares better than tapex-base
+when the number of input tables increases. Mul-
+tiTabQA generates whole tables, rows, columns
+and cells better than tapex-base as observed in
+Figure 5a, 5b, 5c and 5d. The gain of MultiTabQA
+in table exact match for one-table context is around
+8.81%, for two-tables context around 4.37%, and it
+performs similar to tapex-base for three-tables
+context. It also has a significant higher score on
+rows, columns and cells, on both single and multi-
+tabular context.
+We also observe that while the column and table
+EM decreases dramatically when using several ta-
+bles (Figure 5a and 5c), the row and cell EM does
+not (Figure 5b and 5d). This indicates that Multi-
+TabQA can generate rows and cells as effectively in
+single and multiple input tables settings but fail to
+do so for columns and consequently for the whole
+table. This is due to the fact that certain columns in
+the answer, particularly ones with numbers such as
+floats, are challenging to generate. The error from
+the incorrect columns propagates and are accumu-
+lated in the table EM leading to a significant drop
+in performance for multi-table queries.
+Ablation on training stages.
+We perform abla-
+tion on the pre-training stages to analyse the con-
+tribution of each dataset. The simplest setting is
+to pre-train with Spider SQL queries, i.e., Stage 2.
+To evaluate the effectiveness of single table Tapex
+pre-training samples, the next setting comprises
+of stages 1 and 2, i.e., pre-train with Tapex pre-
+training and Spider SQL dataset. The final compari-
+son is with the three-stage pre-training as described
+in Section 4.1. The results for one run of the exper-
+iments are displayed in Table 2. We observe that
+table exact match is highest for both pre-training
+and fine-tuning for the three-stage training. Stage 2
+fares better than Stage 1+2 on table exact match,
+6329
+
+and generally has better precision and F1 scores but
+lower recall. The three-stage pre-training with our
+synthetic data augmented with Spider outperforms
+the other settings and confirms the effectiveness
+of our synthetic data samples in boosting model
+efficacy.
+7
+Related work
+Tabular QA is a research direction in the broader
+topic of table understanding (Jena et al., 2022; Shi-
+garov, 2022) in natural language processing. Re-
+cent advances in table representation (Eisenschlos
+et al., 2021) and pre-training (Cheng et al., 2021a;
+Liu et al., 2022; Cheng et al., 2021a), table fact
+verficiation (Gu et al., 2022; Zhou et al., 2022b), ta-
+ble numeric reasoning (Shankarampeta et al., 2022;
+Zhou et al., 2022a), table-to-text generation (An-
+drejczuk et al., 2022), text-to-table generation (Wu
+et al., 2022), table summarization (Jain et al., 2018;
+Chen et al., 2013; Zhang et al., 2020), and table
+question answering (Yin et al., 2020; Zhang et al.,
+2020; Herzig et al., 2020; Zhu et al., 2021; Liu
+et al., 2021; Cheng et al., 2021b; Nan et al., 2021;
+Ma et al., 2022; Pal et al., 2022; Jin et al., 2022;
+Zhou et al., 2022a) have shown the adaptability of
+language models to table processing.
+8
+Conclusion
+In this work, we propose a new task of multi-table
+question answering without intermediate logical
+forms to fill the gap of existing end-to-end table
+QA research which focused only on single-table
+QA. We release a pre-training dataset of 132, 645
+samples to effectively train a seq2seq model. We
+fine-tune and evaluate our model, MultiTabQA, on
+natural language questions of three datasets: Spider,
+GeoQuery and Atis, to test the efficacy in a multi-
+table setting. As many multi-table questions result
+in tables, we train the model to generate tables.
+This necessitates table-specific metrics at various
+levels of granularity which we design to evaluate
+the effectiveness of our model. We demonstrate
+that such metrics is insightful in understanding
+model behavior. MultiTabQA outperforms existing
+state-of-the-art single table QA model fine-tuned
+to adapt to a multi-table QA setting.
+9
+Limitations
+Our synthetic pre-training dataset was automati-
+cally generated from manual templates, which in-
+spite of dataset creation scalability and low cost,
+may limit the diversity of the generated SQL
+queries. Our model, MultiTabQA, requires im-
+provement in numeracy understanding and numeric
+operations. Real numbers are especially challeng-
+ing and the model may not be able to correctly
+generate all the digits of the number correctly rend-
+ing the generated cell incorrect. Furthermore, large
+input tables pose a challenge as the input sequence
+may get truncated beyond the model’s maximum
+sequence length. This has practical limitation in the
+size and number of input tables which the model
+can accommodate before truncation which leads to
+incorrect answers.
+10
+Ethical Considerations
+The task and model proposed in the paper is aimed
+at broadening the scope of TabularQA research.
+All the datasets used in this research, apart from
+our synthetic data, are publicly available in peer-
+reviewed articles and referenced in this paper. The
+synthetic SQL dataset we release was generated
+over a standard benchmark database which has
+been annotated by 11 Yale students as mentioned
+in the original paper. Our synthetic samples use
+templates annotated by the authors of this work
+and do not use any user-specific data or informa-
+tion. We will be providing open access to our
+datasets for use in future research under the MIT
+License. All datasets, including the synthetic pre-
+training dataset and all datasets adapted for multi-
+table QA will be released. Our model is built over
+tapex-base which in turn has been trained over
+bart-base. Our work did not explicitly handle
+any bias which exists in the aforementioned pre-
+trained models.
+11
+Acknowledgements
+We thank Elsevier’s Discovery Lab for their sup-
+port throughout this project and funding this
+work.
+This work was also supported by the
+Dutch Research Council (NWO) under project
+numbers 016.Vidi.189.039 and 314-99-301, by
+H2020-EU.3.4. Societal Challenges, Smart, Green
+and Integrated Transport (814961), and by the
+Hybrid Intelligence Center, a 10-year program
+funded by the Dutch Ministry of Education,
+Culture and Science through NWO, https://
+hybrid-intelligence-centre.nl.
+All
+content represents the opinion of the authors, which
+is not necessarily shared or endorsed by their re-
+spective employers and/or sponsors.
+6330
+
+References
+Ewa Andrejczuk, Julian Martin Eisenschlos, Francesco
+Piccinno, Syrine Krichene, and Yasemin Altun. 2022.
+Table-to-text generation and pre-training with TabT5.
+arXiv preprint arXiv:2210.09162.
+Yoshua Bengio, Jérôme Louradour, Ronan Collobert,
+and Jason Weston. 2009. Curriculum learning. In
+Proceedings of the 26th Annual International Confer-
+ence on Machine Learning, page 41–48. Association
+for Computing Machinery.
+Zefeng Cai, Xiangyu Li, Binyuan Hui, Min Yang,
+Bowen Li, Binhua Li, Zhen Cao, Weijie Li, Fei
+Huang, Luo Si, and Yongbin Li. 2022. Star: Sql
+guided pre-training for context-dependent text-to-sql
+parsing. arXiv preprint arXiv:2210.11888.
+Jieying Chen, Jia-Yu Pan, Christos Faloutsos, and Spiros
+Papadimitriou. 2013. TSum: Fast, principled table
+summarization. In Proceedings of the Seventh In-
+ternational Workshop on Data Mining for Online
+Advertising. Association for Computing Machinery.
+Zhoujun Cheng, Haoyu Dong, Fan Cheng, Ran
+Jia, Pengfei Wu, Shi Han, and Dongmei Zhang.
+2021a.
+Fortap:
+Using formulas for numerical-
+reasoning-aware table pretraining. arXiv preprint
+arXiv:2109.07323.
+Zhoujun Cheng, Haoyu Dong, Zhiruo Wang, Ran Jia,
+Jiaqi Guo, Yan Gao, Shi Han, Jian-Guang Lou, and
+Dongmei Zhang. 2021b. HiTab: A hierarchical table
+dataset for question answering and natural language
+generation. arXiv preprint arXiv:2108.06712.
+Deborah A. Dahl, Madeleine Bates, Michael Brown,
+William Fisher, Kate Hunicke-Smith, David Pallett,
+Christine Pao, Alexander Rudnicky, and Elizabeth
+Shriberg. 1994. Expanding the scope of the ATIS
+task: The ATIS-3 corpus. In Human Language Tech-
+nology: Proceedings of a Workshop held at Plains-
+boro, New Jersey, March 8-11, 1994.
+Julian Martin Eisenschlos, Maharshi Gor, Thomas
+Müller, and William W. Cohen. 2021. Mate: Multi-
+view attention for table transformer efficiency. In
+Conference on Empirical Methods in Natural Lan-
+guage Processing, page 7606–7619. Association for
+Computational Linguistics.
+Zihui Gu, Ju Fan, Nan Tang, Preslav Nakov, Xiao-
+man Zhao, and Xiaoyong Du. 2022. Pasta: Table-
+operations aware fact verification via sentence-table
+cloze pre-training. arXiv preprint arXiv:2211.02816.
+Jonathan Herzig, Pawel Krzysztof Nowak, Thomas
+Müller, Francesco Piccinno, and Julian Eisenschlos.
+2020. TaPas: Weakly supervised table parsing via
+pre-training. In Proceedings of the 58th Annual Meet-
+ing of the Association for Computational Linguistics,
+pages 4320–4333, Online. Association for Computa-
+tional Linguistics.
+Srinivasan Iyer, Ioannis Konstas, Alvin Cheung, Jayant
+Krishnamurthy, and Luke Zettlemoyer. 2017. Learn-
+ing a neural semantic parser from user feedback. In
+Proceedings of the 55th Annual Meeting of the As-
+sociation for Computational Linguistics (Volume 1:
+Long Papers), page 963–973. Association for Com-
+putational Linguistics.
+Parag Jain, Anirban Laha, Karthik Sankaranarayanan,
+Preksha Nema, Mitesh M. Khapra, and Shreyas
+Shetty. 2018. A mixed hierarchical attention based
+encoder-decoder approach for standard table summa-
+rization. In Proceedings of the 2018 Conference of
+the North American Chapter of the Association for
+Computational Linguistics: Human Language Tech-
+nologies, Volume 2 (Short Papers), pages 622–627.
+Association for Computational Linguistics.
+Aashna Jena, Vivek Gupta, Manish Shrivastava, and Ju-
+lian Eisenschlos. 2022. Leveraging data recasting to
+enhance tabular reasoning. In Findings of the Associ-
+ation for Computational Linguistics: EMNLP 2022,
+pages 4512 – 4525. Association for Computational
+Linguistics.
+Nengzheng Jin, Joanna Siebert, Dongfang Li, and
+Qingcai Chen. 2022.
+A survey on table ques-
+tion answering: Recent advances. arXiv preprint
+arXiv:2207.05270.
+Chia-Hsuan Lee, Oleksandr Polozov, and Matthew
+Richardson. 2021. KaggleDBQA: Realistic evalu-
+ation of Text-to-SQL parsers. Proceedings of the
+59th Annual Meeting of the Association for Compu-
+tational Linguistics and the 11th International Joint
+Conference on Natural Language Processing (Vol-
+ume 1: Long Papers), page 2261–2273.
+Qian Liu, Bei Chen, Jiaqi Guo, Morteza Ziyadi, Zeqi
+Lin, Weizhu Chen, and Jian guang Lou. 2021.
+TAPEX: Table pre-training via learning a neural SQL
+executor. arXiv preprint arXiv:2107.07653.
+Ruixue Liu, Shaozu Yuan, Aijun Dai, Lei Shen, Tian-
+gang Zhu, and Meng Chen. 2022.
+Few-shot ta-
+ble understanding: A benchmark dataset and pre-
+training baseline. In Proceedings of the 29th Inter-
+national Conference on Computational Linguistics,
+page 3741–3752.
+Kaixin Ma, Hao Cheng, Xiaodong Liu, Eric Nyberg,
+and Jianfeng Gao. 2022. Open domain question an-
+swering with a unified knowledge interface. In An-
+nual Meeting of the Association for Computational
+Linguistics, pages 1605–1620. Association for Com-
+putational Linguistics.
+Linyong Nan, Chiachun Hsieh, Ziming Mao, Xi Victoria
+Lin, Neha Verma, Rui Zhang, Wojciech Kry´sci´nski,
+Nick Schoelkopf, Riley Kong, Xiangru Tang, Murori
+Mutuma, Ben Rosand, Isabel Trindade, Renusree
+Bandaru, Jacob Cunningham, Caiming Xiong, and
+Dragomir Radev. 2021. Fetaqa: Free-form table ques-
+tion answering. arXiv preprint arXiv:2104.00369.
+6331
+
+Rodrigo Nogueira, Zhiying Jiang, and Jimmy Lin.
+2021.
+Investigating the limitations of transform-
+ers with simple arithmetic tasks.
+arXiv preprint
+arXiv:2102.13019.
+Kuntal Kumar Pal and Chitta Baral. 2021. Investigating
+numeracy learning ability of a text-to-text transfer
+model. In Findings of the Association for Computa-
+tional Linguistics: EMNLP 2021, page 3095–3101.
+Association for Computational Linguistics.
+Vaishali Pal, Evangelos Kanoulas, and Maarten Rijke.
+2022. Parameter-efficient abstractive question an-
+swering over tables or text. In Proceedings of the
+Second DialDoc Workshop on Document-grounded
+Dialogue and Conversational Question Answering,
+pages 41–53. Association for Computational Linguis-
+tics.
+Panupong Pasupat and Percy Liang. 2015.
+Compo-
+sitional semantic parsing on semi-structured tables.
+arXiv preprint arXiv:1508.00305.
+P. J. Price. 1990. Evaluation of spoken language sys-
+tems: the ATIS domain. In Speech and Natural Lan-
+guage: Proceedings of a Workshop Held at Hidden
+Valley, Pennsylvania, June 24-27,1990.
+Abhilash Shankarampeta, Vivek Gupta, and Shuo
+Zhang. 2022. Enhancing tabular reasoning with pat-
+tern exploiting training. In Proceedings of the 2nd
+Conference of the Asia-Pacific Chapter of the Asso-
+ciation for Computational Linguistics and the 12th
+International Joint Conference on Natural Language
+Processing, page 706–726. Association for Computa-
+tional Linguistics.
+Tianze Shi, Chen Zhao, Jordan Boyd-Graber, Hal
+Daumé III, and Lillian Lee. 2020. On the poten-
+tial of lexico-logical alignments for semantic pars-
+ing to SQL queries. In Findings of the Association
+for Computational Linguistics: EMNLP 2020, page
+1849–1864. Association for Computational Linguis-
+tic.
+Alexey O. Shigarov. 2022. Table understanding: Prob-
+lem overview. WIREs Data Mining and Knowledge
+Discovery, 13:e1482.
+Xueqing Wu, Jiacheng Zhang, and Hang Li. 2022. Text-
+to-Table: A new way of information extraction. Pro-
+ceedings of the 60th Annual Meeting of the Associa-
+tion for Computational Linguistics (Volume 1: Long
+Papers), pages 2518–2533.
+Pengcheng Yin, Graham Neubig, Wen-tau Yih, and Se-
+bastian Riedel. 2020. TaBERT: Pretraining for joint
+understanding of textual and tabular data. Proceed-
+ings of the 58th Annual Meeting of the Association
+for Computational Linguistics, page 8413–8426.
+Tao Yu, Chien-Sheng Wu, Xi Victoria Lin, Bailin
+Wang, Yi Chern Tan, Xinyi Yang, Dragomir Radev,
+Richard Socher, and Caiming Xiong. 2021. GraPPa:
+Grammar-augmented pre-training for table semantic
+parsing. In International Conference on Learning
+Representations.
+Tao Yu, Rui Zhang, Kai Yang, Michihiro Yasunaga,
+Dongxu Wang, Zifan Li, James Ma, Irene Li, Qingn-
+ing Yao, Shanelle Roman, Zilin Zhang, and Dragomir
+Radev. 2018. Spider: A large-scale human-labeled
+dataset for complex and cross-domain semantic pars-
+ing and text-to-SQL task. In Proceedings of the 2018
+Conference on Empirical Methods in Natural Lan-
+guage Processing, pages 3911–3921. Association for
+Computational Linguistics.
+John M. Zelle and Raymond J. Mooney. 1996. Learn-
+ing to parse database queries using inductive logic
+programming. In Proceedings of the Thirteenth Na-
+tional Conference on Artificial Intelligence - Volume
+2, AAAI’96, page 1050–1055. AAAI Press.
+Shuo Zhang, Zhuyun Dai, Krisztian Balog, and Jamie
+Callan. 2020. Summarizing and exploring tabular
+data in conversational search. In Proceedings of the
+43rd International ACM SIGIR Conference on Re-
+search and Development in Information Retrieval,
+pages 1537–1540. ACM.
+Victor Zhong, Caiming Xiong, and Richard Socher.
+2017. Seq2SQL: Generating structured queries from
+natural language using reinforcement learning. arXiv
+preprint arXiv:1709.00103.
+Fan Zhou, Mengkang Hu, Haoyu Dong, Zhoujun Cheng,
+Shi Han, and Dongmei Zhang. 2022a.
+TaCube:
+Pre-computing data cubes for answering numerical-
+reasoning questions over tabular data. arXiv preprint
+arXiv:2205.12682.
+Yuxuan Zhou, Xien Liu, Kaiyin Zhou, and Ji Wu. 2022b.
+Table-based fact verification with self-adaptive mix-
+ture of experts. arXiv preprint arXiv:2204.08753.
+Fengbin Zhu, Wenqiang Lei, Youcheng Huang, Chao
+Wang, Shuo Zhang, Jiancheng Lv, Fuli Feng, and Tat-
+Seng Chua. 2021. TAT-QA: A question answering
+benchmark on a hybrid of tabular and textual content
+in finance. arXiv preprint arXiv:2105.07624.
+6332
+
+ACL 2023 Responsible NLP Checklist
+A
+For every submission:
+□ A1. Did you describe the limitations of your work?
+9
+□ A2. Did you discuss any potential risks of your work?
+10
+□ A3. Do the abstract and introduction summarize the paper’s main claims?
+1
+□ A4. Have you used AI writing assistants when working on this paper?
+Left blank.
+B
+□ Did you use or create scientiﬁc artifacts?
+3
+□ B1. Did you cite the creators of artifacts you used?
+3
+□ B2. Did you discuss the license or terms for use and / or distribution of any artifacts?
+3
+□ B3. Did you discuss if your use of existing artifact(s) was consistent with their intended use, provided
+that it was speciﬁed? For the artifacts you create, do you specify intended use and whether that is
+compatible with the original access conditions (in particular, derivatives of data accessed for research
+purposes should not be used outside of research contexts)?
+3
+□ B4. Did you discuss the steps taken to check whether the data that was collected / used contains any
+information that names or uniquely identiﬁes individual people or offensive content, and the steps
+taken to protect / anonymize it?
+Dataset is standard benchmark semantic parsing dataset publicly available for more than a decade.
+□ B5. Did you provide documentation of the artifacts, e.g., coverage of domains, languages, and
+linguistic phenomena, demographic groups represented, etc.?
+3
+□ B6. Did you report relevant statistics like the number of examples, details of train / test / dev splits,
+etc. for the data that you used / created? Even for commonly-used benchmark datasets, include the
+number of examples in train / validation / test splits, as these provide necessary context for a reader
+to understand experimental results. For example, small differences in accuracy on large test sets may
+be signiﬁcant, while on small test sets they may not be.
+3
+C
+□ Did you run computational experiments?
+6
+□ C1. Did you report the number of parameters in the models used, the total computational budget
+(e.g., GPU hours), and computing infrastructure used?
+6
+The Responsible NLP Checklist used at ACL 2023 is adopted from NAACL 2022, with the addition of a question on AI writing
+assistance.
+6333
+
+□ C2. Did you discuss the experimental setup, including hyperparameter search and best-found
+hyperparameter values?
+6
+□ C3. Did you report descriptive statistics about your results (e.g., error bars around results, summary
+statistics from sets of experiments), and is it transparent whether you are reporting the max, mean,
+etc. or just a single run?
+6
+□ C4. If you used existing packages (e.g., for preprocessing, for normalization, or for evaluation), did
+you report the implementation, model, and parameter settings used (e.g., NLTK, Spacy, ROUGE,
+etc.)?
+3
+D
+□ Did you use human annotators (e.g., crowdworkers) or research with human participants?
+Left blank.
+□D1. Did you report the full text of instructions given to participants, including e.g., screenshots,
+disclaimers of any risks to participants or annotators, etc.?
+No response.
+□D2. Did you report information about how you recruited (e.g., crowdsourcing platform, students)
+and paid participants, and discuss if such payment is adequate given the participants’ demographic
+(e.g., country of residence)?
+No response.
+□D3. Did you discuss whether and how consent was obtained from people whose data you’re
+using/curating? For example, if you collected data via crowdsourcing, did your instructions to
+crowdworkers explain how the data would be used?
+No response.
+□D4. Was the data collection protocol approved (or determined exempt) by an ethics review board?
+No response.
+□D5. Did you report the basic demographic and geographic characteristics of the annotator population
+that is the source of the data?
+No response.
+6334","https://aclanthology.org/2023.acl-long.348.pdf","semantic_scholar_pdf","0.0017668490763753653","5","1","0.9","The paper directly addresses the query by focusing on multi-table question answering, which is relevant to the iterative search and reasoning process described in the query."
+"9","Topic-oriented Adversarial Attacks against Black-box Neural Ranking Models","2023","Annual International ACM SIGIR Conference on Research and Development in Information Retrieval","Yuansan Liu, Ruqing Zhang, J. Guo, M. de Rijke, Wei Chen, Yixing Fan, Xueqi Cheng","34","Neural ranking models (NRMs) have attracted considerable attention in information retrieval. Unfortunately, NRMs may inherit the adversarial vulnerabilities of general neural networks, which might be leveraged by black-hat search engine optimization practitioners. Recently, adversarial attacks against NRMs have been explored in the paired attack setting, generating an adversarial perturbation to a target document for a specific query. In this paper, we focus on a more general type of perturbation and introduce the topic-oriented adversarial ranking attack task against NRMs, which aims to find an imperceptible perturbation that can promote a target document in ranking for a group of queries with the same topic. We define both static and dynamic settings for the task and focus on decision-based black-box attacks. We propose a novel framework to improve topic-oriented attack performance based on a surrogate ranking model. The attack problem is formalized as a Markov decision process (MDP) and addressed using reinforcement learning. Specifically, a topic-oriented reward function guides the policy to find a successful adversarial example that can be promoted in rankings to as many queries as possible in a group. Experimental results demonstrate that the proposed framework can significantly outperform existing attack strategies, and we conclude by re-iterating that there exist potential risks for applying NRMs in the real world.","Topic-oriented Adversarial Attacks
+against Black-box Neural Ranking Models
+Yu-An Liu
+Ruqing Zhang∗
+CAS Key Lab of Network Data
+Science and Technology, ICT, CAS
+University of Chinese Academy of
+Sciences
+Beijing, China
+{liuyuan21b,zhangruqing}@ict.ac.cn
+Jiafeng Guo†
+CAS Key Lab of Network Data
+Science and Technology, ICT, CAS
+University of Chinese Academy of
+Sciences
+Beijing, China
+guojiafeng@ict.ac.cn
+Maarten de Rijke
+University of Amsterdam
+Amsterdam, The Netherlands
+m.derijke@uva.nl
+Wei Chen
+CAS Key Lab of Network Data
+Science and Technology, ICT, CAS
+University of Chinese Academy of
+Sciences
+Beijing, China
+chenwei2022@ict.ac.cn
+Yixing Fan
+CAS Key Lab of Network Data
+Science and Technology, ICT, CAS
+University of Chinese Academy of
+Sciences
+Beijing, China
+fanyixing@ict.ac.cn
+Xueqi Cheng
+CAS Key Lab of Network Data
+Science and Technology, ICT, CAS
+University of Chinese Academy of
+Sciences
+Beijing, China
+cxq@ict.ac.cn
+ABSTRACT
+Neural ranking models (NRMs) have attracted considerable atten-
+tion in information retrieval. Unfortunately, NRMs may inherit the
+adversarial vulnerabilities of general neural networks, which might
+be leveraged by black-hat search engine optimization practitioners.
+Recently, adversarial attacks against NRMs have been explored in
+the paired attack setting, generating an adversarial perturbation to
+a target document for a specific query. In this paper, we focus on a
+more general type of perturbation and introduce the topic-oriented
+adversarial ranking attack task against NRMs, which aims to find an
+imperceptible perturbation that can promote a target document in
+ranking for a group of queries with the same topic. We define both
+static and dynamic settings for the task and focus on decision-based
+black-box attacks. We propose a novel framework to improve topic-
+oriented attack performance based on a surrogate ranking model.
+The attack problem is formalized as a Markov decision process
+(MDP) and addressed using reinforcement learning. Specifically, a
+topic-oriented reward function guides the policy to find a successful
+adversarial example that can be promoted in rankings to as many
+queries as possible in a group. Experimental results demonstrate
+that the proposed framework can significantly outperform existing
+attack strategies, and we conclude by re-iterating that there exist
+potential risks for applying NRMs in the real world.
+∗Research conducted when the author was at the University of Amsterdam.
+†Jiafeng Guo is the corresponding author.
+Permission to make digital or hard copies of all or part of this work for personal or
+classroom use is granted without fee provided that copies are not made or distributed
+for profit or commercial advantage and that copies bear this notice and the full citation
+on the first page. Copyrights for components of this work owned by others than the
+author(s) must be honored. Abstracting with credit is permitted. To copy otherwise, or
+republish, to post on servers or to redistribute to lists, requires prior specific permission
+and/or a fee. Request permissions from permissions@acm.org.
+SIGIR ’23, July 23–27, 2023, Taipei, Taiwan
+© 2023 Copyright held by the owner/author(s). Publication rights licensed to ACM.
+ACM ISBN 978-1-4503-9408-6/23/07...$15.00
+https://doi.org/10.1145/3539618.3591777
+CCS CONCEPTS
+• Information systems →Adversarial retrieval.
+KEYWORDS
+Neural ranking model, Adversarial attack, Reinforcement learning
+ACM Reference Format:
+Yu-An Liu, Ruqing Zhang, Jiafeng Guo, Maarten de Rijke, Wei Chen, Yixing
+Fan, and Xueqi Cheng. 2023. Topic-oriented Adversarial Attacks against
+Black-box Neural Ranking Models. In Proceedings of the 46th International
+ACM SIGIR Conference on Research and Development in Information Retrieval
+(SIGIR ’23), July 23–27, 2023, Taipei, Taiwan. ACM, New York, NY, USA,
+10 pages. https://doi.org/10.1145/3539618.3591777
+1
+INTRODUCTION
+Ranking models are the main components of information retrieval
+(IR) systems. Building on advances in deep neural networks [25],
+neural ranking models (NRMs) [12, 18, 34, 39] have achieved promis-
+ing ranking effectiveness.
+Vulnerability of NRMs. Besides effectiveness, recently, robust-
+ness of NRMs has received increasing attention from the research
+community [56]. In many natural language processing (NLP) [13,
+48] and computer vision (CV) [15, 27] tasks, deep learning-based
+models have been found vulnerable to adversarial examples that
+can trigger the misbehavior with human-imperceptible perturba-
+tions. In the field of IR, NRMs are also likely to inherit adversarial
+vulnerabilities of general neural networks [51], which raises legiti-
+mate concerns about the robustness and trustworthiness of neural
+IR systems. Therefore, there have been initial studies [28, 54, 55]
+on adversarial attacks against NRMs. We believe it is important
+to study potential adversarial attacks against NRMs in IR as they
+can identify the vulnerability of NRMs before deploying them in
+real-world applications and support the development of appropriate
+countermeasures.
+arXiv:2304.14867v1  [cs.IR]  28 Apr 2023
+
+SIGIR ’23, July 23–27, 2023, Taipei, Taiwan
+Yu-An Liu et al.
+perturbations 𝑝
+Ranking improvements for 𝑄
+…
+𝑞1
+𝑞2
+𝑞3
+𝑞𝑀
+𝑞4
+Adversarial document 𝑑𝑎𝑑𝑣
+Neural ranking model
+＋
+Group of queries 𝑄
+Original document 𝑑
+Ranking
+Top 1
+Top 100
+Top 10
+Top 50
+Queries
+𝑞1, 𝑞2, 𝑞3,
+𝑞4, … , 𝑞𝑀
+…
+…
+Figure 1: The topic-oriented adversarial ranking attack
+(TARA) task.
+Paired attack. Early studies on adversarial attacks against NRMs
+mainly concern adversarial perturbations over a specific pair of
+query and document. That is, such perturbations are capable of
+fooling NRMs into promoting a target document in the ranking
+with respect to a specific query. For example, by injecting trigger
+tokens into a document [28] or replacing important words in a
+document with synonyms [55], a target document can be promoted
+significantly in rankings. These prior publications have shown that
+NRMs are vulnerable to imperceptible adversarial perturbations.
+Topic-oriented group attack. In this paper, we introduce a more
+general attack task, namely the topic-oriented adversarial ranking
+attack (TARA) task against NRMs. Given a neural ranking model
+and a group of queries with the same topic, TARA aims to promote
+a target document in the rankings with respect to each query in the
+group, by perturbing the document’s text in a semantic-preserving
+way. See Figure 1 for a visualization. This attack scenario is more
+practical than the existing paired attack scenario, since it is more
+economic for black-hat search engine optimization (SEO) [19] to
+exploit document perturbations in terms of query topics rather than
+in terms of individual queries, to improve campaign performance
+[24]. E.g., in paid search advertising, when advertisers create an
+advertisement, they select a set of keywords for a group of target
+queries with the same topic [19], e.g., a shoe seller wants clicks
+from users who intend to buy shoes with different queries with
+the topic of “shoe”, like “shoes for running” and “hiking shoe”.
+Compared with paired attacks, the topic-oriented group attack is
+significantly more challenging as it must consider relationships
+between a document and an entire group of queries, instead of a
+single query, so as to find the generic vulnerability of NRMs.
+We focus on a practical and challenging decision-based black-
+box setting, where no model information is exposed except that the
+attackers can query the target NRM and obtain hard-label predic-
+tions [28, 55]. Unlike existing ranking attacks that are only designed
+for static scenarios, we define both static and dynamic settings for
+the TARA task, where the target NRM remains unchanged (the
+static setting) or is kept up-to-date in the presence of potentially
+highly dynamic corpora (the dynamic setting). The dynamic setting
+is inspired by the use of practical IR systems, as the majority of
+websites encapsulating online information are dynamic [24]. To
+facilitate our study and evaluation of the TARA task, we build two
+benchmark datasets based on several public IR collections, i.e., MS
+MARCO, ORCAS, ClueWeb09-B, and Web Track in TREC 2012.
+An RL-based ranking attack method. Typically, an attack pro-
+cess in TARA can be regarded as a series of interactions between the
+attacker and the target NRM. During these interactions, the target
+NRM may be dynamically updated due to changing corpora and
+the attacker is expected to generate document perturbations that
+can fool the current NRM for a group of queries with high proba-
+bility. Therefore, we introduce a novel reinforcement learning-based
+adversarial ranking attack framework (RELEVANT), to generate
+adversarial examples, which uses a Markov decision process [50] to
+track interactions between the attacker and the target NRM. First,
+we train a surrogate ranking model that can mimic the ranked list of
+the black-box target NRM. We set the surrogate model as a virtual
+environment and design several types of environmental dynamics
+for updating the corpus. Then, we explore two attack strategies as
+the agent to generate document perturbations, which interact with
+the environment to get information about how good the ranking
+promotions are. To guide the agent to generate a general pertur-
+bation for a group of queries, we design a topic-oriented reward
+by contrasting the relevance between each query and the attacked
+document at the current state with that at the previous state. During
+the RL process, the attack strategy is updated continuously based
+on the current NRM’s real-time feedback.
+Experimental findings. Experimental results under both static
+and dynamic scenarios demonstrate the vulnerability of existing
+NRMs and the effectiveness of our adversarial attack method. We
+also provide detailed analyses and conduct case studies to gain a
+better understanding of the learned document perturbations.
+2
+RELATED WORK
+Text ranking models. Ranking models have always been at the
+heart of IR. Over the past decades, ranking models have experienced
+rapid algorithmic shifts, from early heuristic models [46], proba-
+bilistic models [41, 44] to modern learning to rank models [26, 29].
+With the development of deep learning, researchers have adopted
+NRMs [12, 18, 34, 39], which have been proved to be effective in cap-
+turing latent semantics and ranking features. Recently, researchers
+have also investigated applying popular pre-trained language mod-
+els for text ranking [1, 38], which achieves new state-of-the-art
+performance [14]. Besides direct applications, prior work demon-
+strates that crafting pre-training objectives tailed for IR [30, 31] can
+further enhance the performance on downstream ranking tasks.
+However, these text ranking models also inherit the adversarial
+vulnerabilities of neural networks, which remain under-explored.
+Adversarial attacks. Deep neural networks are notorious for their
+vulnerability to adversarial examples, which are crafted with imper-
+ceptible perturbations to the original input [51]. This has motivated
+research into adversarial attacks [15, 32] to find a minimal pertur-
+bation that maximize the model’s risk of making wrong predictions.
+Adversarial attacks can be grouped in white-box [13] and black-
+box attacks [40]. Adversarial attacks have been explored in natural
+language processing (NLP) and computer vision (CV) tasks, e.g.,
+text classification [13, 53], image classification [15, 32], and image
+retrieval [7, 27]. In IR, search engine optimization (SEO) has been
+around since the dawn of the web; white-hat [16] and black-hat [4]
+SEO are distinguished based on whether the intention to modify
+the document is malicious. We focus on adversarial attacks against
+NRMs, which can be regarded as a new type of black-hat SEO.
+There has been limited research regarding this direction. E.g.,
+some work [42, 48] explore token perturbations’ impact on docu-
+ment ranking and Wang et al. [54] investigate BERT-based ranking
+model attacks. However, such work addresses the white-box attack
+scenario and ignores the practical conditions of invisibility of the
+
+Topic-oriented Adversarial Attacks against Black-box Neural Ranking Models
+SIGIR ’23, July 23–27, 2023, Taipei, Taiwan
+target model. Wu et al. [55] and Liu et al. [28] propose black-box at-
+tacks using word substitution and trigger generation. Unlike these
+paired attack methods, we propose to promote a target document
+in rankings with respect to a group of queries with the same topic.
+As a special attack in NLP and CV, universal adversarial per-
+turbations [35, 53] have been proposed, where the same attack
+perturbation can be applied to any input to the target model. Our
+attack can be seen as a typical case of universal attacks in IR, i.e., a
+single document perturbation for a group of queries.
+Reinforcement learning. Reinforcement learning (RL) [50] is a
+widely used machine learning approach involving exploration and
+exploitation. It has been successfully applied in various applications
+[2], e.g., games [47], CV [3], NLP [59], and IR [20]. Recently, some
+work has applied RL methods to generate adversarial examples in
+NLP tasks [52, 57, 62]. Maimon and Rokach [33] learn a single search
+policy over a predefined set of semantics for text classifiers. Un-
+like this work, we aim to generate fluent and semantic-preserving
+adversarial examples against NRMs by optimizing the evaluation
+metrics of the TARA task through a deep RL approach. To simu-
+late corpus dynamics, we leverage a surrogate ranking model as a
+virtual environment with several dynamic settings.
+3
+PROBLEM STATEMENT
+We introduce the TARA task and describe the benchmark datasets.
+3.1
+Task description
+In ad-hoc retrieval, given a query 𝑞and a set of 𝑁document can-
+didates D = {𝑑1,𝑑2, . . . ,𝑑𝑁} from a corpus C, a ranking model
+𝑓aims to associate a relevance score 𝑓(𝑞,𝑑𝑛) with each pair of
+𝑞and 𝑑𝑛∈D to rank the whole candidate set. For example, the
+ranking model outputs the ranked list 𝐿= [𝑑𝑁,𝑑𝑁−1, . . . ,𝑑1] if it
+determines 𝑓(𝑞,𝑑𝑁) > 𝑓(𝑞,𝑑𝑁−1) > · · · > 𝑓(𝑞,𝑑1).
+Objective of the adversary. The TARA task is to find an opti-
+mized topic-oriented and very small perturbation, which fools the
+NRMs into promoting the target document in rankings with re-
+spect to a group of queries with the same topic. Formally, given
+a target document 𝑑and a group of queries with the same topic
+𝑄= {𝑞1, . . . ,𝑞𝑀}, the goal is to construct a valid adversarial exam-
+ple 𝑑𝑎𝑑𝑣that can be ranked higher to each query 𝑞𝑚∈𝑄by NRMs
+while resembling 𝑑. We use a soft objective to measure the success
+of the TARA task.
+Specifically, we say 𝑑𝑎𝑑𝑣succeeds to attack the group of queries
+𝑄with level 𝛼∈[0, 1], if there exists 𝑄𝛼with |𝑄𝛼|/|𝑄| ≥𝛼, such
+that for all 𝑞𝑚in 𝑄𝛼:
+Rank(𝑞𝑚,𝑑𝑎𝑑𝑣) < Rank(𝑞𝑚,𝑑) such that Sim(𝑑,𝑑𝑎𝑑𝑣) ≥𝜖, (1)
+where Rank(𝑞𝑚,𝑑) and Rank(𝑞𝑚,𝑑𝑎𝑑𝑣) denote the position of 𝑑
+and 𝑑𝑎𝑑𝑣in the ranked list with respect to each query 𝑞𝑖, respec-
+tively. A smaller value of rank position denotes a higher ranking.
+Sim : D × D →(0, 1) refers to a similarity function and 𝜖is the
+minimum similarity between 𝑑and 𝑑𝑎𝑑𝑣. The adversarial example
+𝑑𝑎𝑑𝑣can be regarded as 𝑑+ 𝑝, where 𝑝denotes the perturbation
+to 𝑑. Ideally, 𝑑𝑎𝑑𝑣should be semantically consistent with 𝑑and
+imperceptible to human judges yet misleading to NRMs.
+Decision-based black-box attacks. We focus on decision-based
+black-box attacks against NRMs for TARA task, because most real-
+world search engines are black boxes and only provide hard-label
+Table 1: Data statistics: #q denotes the number of queries,
+#d denotes the number of target documents, and #w denotes
+the number of words.
+Q-MS MARCO
+Q-ClueWeb09
+Group of queries
+200
+50
+Group: avg #q
+20
+5.84
+Group: avg #d
+10
+10
+Query: avg #w
+4.72
+7.93
+Document: avg #w
+408.19
+795.56
+outputs. The adversary can only query the target NRM to obtain
+corresponding rank positions of the partially retrieved list [55].
+Static and dynamic settings. An essential characteristic of search
+engines operating over the web, is its inherently dynamic nature,
+with the corpus change. Though some studies [28, 55] have viewed
+the ranking attack as being interactive, they simply consider the
+target NRM to be static and learn fixed attack strategies.
+In this work, we define two settings of the target NRM according
+to its update frequency: (i) Static: The target NRM is fixed during
+the attack without continuous update; and (ii) Dynamic: The target
+NRM is updated in real-time along with the dynamic of the corpora.
+The attacker should maintain the attack performance even if the
+search environment is dynamically updated. Although the dynamic
+setting for the TARA task is significantly more challenging than the
+static setting, it is more practical and enables broader applicability
+of the attack methods to a real-world search engine.
+3.2
+Benchmark construction
+To evaluate the TARA task, we build benchmark datasets based
+on two public collections: (i) ClueWeb09-B [8] with 150 queries
+from TREC Web Tracks 2009-2011 and 50M documents; and (ii) MS
+MARCO Document Ranking (MS MARCO) [37] with about 0.37
+million training queries and 3.2 million documents. We build groups
+of queries with the same topic as follows.
+ClueWeb09-B. We leverage the TREC 2012 Web Track [9] to con-
+struct groups of queries. Specifically, the TREC 2012 Web Track
+selects 50 queries from ClueWeb09-B and every query is structured
+as a representative group of subtopics, each related to a different
+user need. The selection of subtopics attempts to reflect a mix of
+genuine user search intent. Therefore, we directly use these 50
+groups of queries of related topics as the query set to perform
+attacks. We leave the remaining 100 queries in the ClueWeb09-B
+without subtopics to train the target ranking model.
+MS MARCO. We leverage the training data to train the target
+model and leverage the development set with 5,193 queries to
+construct groups of queries for attacks. The number of queries
+in the development set is insufficient to support the collection of a
+large number of queries with the same topics. The Open Resource
+for Click Analysis in Search (ORCAS) dataset [10] is a large-scale
+dataset of click logs related to documents in MS MARCO, with
+over 10 million distinct queries. ORCAS is a supplement to the MS
+MARCO training set, and the queries in it are distributed across
+common and rare terms [10]. We use ORCAS to help aggregate
+queries in the MS MARCO dataset. We randomly select 200 queries
+from the MS MARCO development set and use Sentence-BERT [43]
+to obtain representations of each query in ORCAS and the selected
+queries in MS MARCO. For each selected query in MS MARCO,
+
+SIGIR ’23, July 23–27, 2023, Taipei, Taiwan
+Yu-An Liu et al.
+…
+imitate
+RL Attacker
+AGENT
+State
+Action
+…
+…
+…
+…
+…
+…
+ENVIRONMENT
+Group of Queries’ Ranked Lists
+𝑞𝑀
+𝑞4
+𝑞3
+𝑞2
+𝑞1
+…
+Black-box Ranking Model
+Surrogate 
+Ranking Model
+update
+ranking update 
+perturbation
+injection
+Target Document
+Group of Queries
+𝑞1, 𝑞2, … , 𝑞𝑀
+Reward
+…
+Adversarial Document
+𝑞1, 𝑞2, 𝑞3,
+𝑞4, … , 𝑞𝑀
+𝑞1, 𝑞2, 𝑞3,
+𝑞4, … , 𝑞𝑀
+𝑞1, 𝑞2, 𝑞3,
+𝑞4, … , 𝑞𝑀
+Figure 2: RL-based attack framework (RELEVANT).
+we use cosine similarity to calculate the top 100 similar queries
+from ORCAS. We then randomly select 19 queries from the top 100
+results for diversity, and 20 similar queries with the same topic are
+grouped.
+For each group of queries, we construct target documents for
+attacks. Following [54, 55], we attack 10 documents ranked in the
+top 100 documents. Since a document has different rankings for
+each query in a group of queries, we use the average ranking under
+all queries in a group to measure the overall document relevance.
+Specifically, we randomly choose 10 marginal documents from
+each group of queries with an average ranking of 95-100 following
+[28]. We refer to the benchmark datasets constructed based on MS
+MARCO and ClueWeb09-B as Q-MS MARCO and Q-ClueWeb09,
+respectively. Table 1 shows the overall statistics.
+4
+METHOD
+We introduce RELEVANT, our RL-based attack framework for the
+TARA task.
+4.1
+Motivation
+The attack process in TARA can be regarded as a series of inter-
+actions between the attacker and the target NRM: the attackers
+modify the target document, and the NRM ranks the attacked doc-
+ument. Then, the attacker observes the rank change to a desired
+group of queries and further optimizes its attack strategy. During a
+sequence of interactions, the target NRM may dynamically change,
+and the attack strategies are expected to change accordingly.
+We introduce an RL-based framework RELEVANT to learn an
+optimal ranking attack strategy that fits the dynamically chang-
+ing NRM. We take the document owner as the agent, their topic-
+oriented attack perturbations as the action, and treat the target
+NRM as the environment. As shown in Figure 2, the RELEVANT
+framework consists of two major components: (i) A surrogate rank-
+ing model, which imitates the behavior of the target NRM and
+serves as the virtual environment. (ii) An RL Attacker, which re-
+ceives topic-oriented rewards from the environment and generates
+general document perturbations under the group of queries.
+4.2
+Environment: Surrogate ranking model
+Under the decision-based black-box setting, we train a surrogate
+ranking model to imitate and achieve comparable performance to
+the target NRM as the virtual environment for the RL Attacker. We
+design various corpus dynamics to simulate the ever-changing web.
+4.2.1
+Black-box ranking model imitation. Following [28, 55],
+we leverage the relative relevance information among the ranked
+result list returned by the target model to construct a synthetic
+dataset, for training a surrogate model. Formally, given a query 𝑞
+from a query collection Q from the downstream search tasks, we
+get the rank list 𝐿of 𝑁documents returned by the target NRM. We
+generate pseudo-labels as the ground-truth by treating the top-𝑘
+ranked documents 𝐿[: 𝑘] as relevant documents while treating the
+other documents 𝐿[𝑘+1 : 𝑁] as irrelevant documents. We initialize
+the surrogate ranking model ˜𝑓using the original BERT and the
+objective function to train ˜𝑓is defined as:
+L =
+1
+|Q|
+∑︁
+𝑞∈Q
+max(0,𝜂−˜𝑓(𝑞, 𝐿[: 𝑘]) + ˜𝑓(𝑞, 𝐿[𝑘+ 1 : 𝑁])),
+(2)
+where 𝜂is the margin for the hinge loss function.
+4.2.2
+Dynamics of environment. Besides the static setting, where
+the target ranking model is fixed, we also envisage three dynamic
+cases of the environment given the dynamic nature of the web.
+Document incremental. In the real world, new documents usu-
+ally arrive sequentially instead of simultaneously. Here, we add
+new documents in each update round for training the target model
+in response to incremental information.
+Document removal. A document may also be removed from the
+corpus. Here, we randomly delete some documents from the corpus
+and re-train the target model.
+Ranking-incentivized document. The search system may de-
+tect that a document is promoted significantly in the short term,
+and then design corresponding countermeasures to force it to be
+outside the top-ranked list. Here, we simply regard the attacked
+documents as abnormal and mix them into negative examples for
+further training the target model.
+In order to ensure the evolution of attacks, the surrogate model
+needs to be updated along with the target model. Instead of retrain-
+ing, we continue to train the surrogate model with another epoch
+using the sampled data from the target model.
+4.3
+Agent: RL attacker
+We explore two attack strategies based on word-level and sentence-
+level textual attacks [60]. For word-level attacks, we use word sub-
+stitution [21], the core idea of which is to select the important
+words in the document for synonym substitution. For sentence-
+level attacks, we use the trigger generation [53], which generates a
+generic sentence to be injected at the beginning of the document.
+In general, the attack process under the above environment
+can be regarded as a sequential decision process during which
+the RL attacker decides the perturbations to the target document.
+Therefore, we mathematically formalize the search process as an
+MDP, which is described by a tuple ⟨S, A, T, 𝑅,𝛾⟩including the
+state, action, transition, reward, and discount factor. Specifically,
+S denotes the state space, and A denotes the action space. T :
+S × A →S is the transition function that generates the next state
+𝑠𝑡+1 from the current state 𝑠𝑡and action 𝑎𝑡. 𝑅: S × A →R is the
+reward function, while the reward at the 𝑡-th step is 𝑟𝑡= 𝑅(𝑠𝑡,𝑎𝑡).
+𝛾∈[0, 1] is the discount factor for future rewards. Formally, the
+MDP components are specified with the following definition:
+• State 𝑠is the document, with an initial state 𝑠0 is a target docu-
+ment and a terminal state is a successful adversarial example.
+
+Topic-oriented Adversarial Attacks against Black-box Neural Ranking Models
+SIGIR ’23, July 23–27, 2023, Taipei, Taiwan
+• Action 𝑎is a perturbation the RL Attacker selects to inject into
+the document. We aim for these actions, i.e., word substitution
+and trigger generation, to preserve the document’s semantic.
+• Transition T changes the state of the document 𝑑, adding one
+perturbation at each time step.
+• Reward R is the reward function given by the simulated ranking
+model to provide supervision signals for the model training.
+We solve the MDP problem with the policy gradient algorithm
+REINFORCE [50]. At each time step 𝑡, the policy 𝜋(𝑎𝑡| 𝑠𝑡) defines
+the probability of sampling action 𝑎𝑡∈A in state 𝑠𝑡∈S. The aim
+of RL is to learn an optimal policy 𝜋∗by maximizing the expected
+cumulative reward 𝑅𝑡= E[Í∞
+𝑘=0 𝛾𝑘𝑟𝑡+𝑘].
+4.3.1
+Topic-oriented reward design. A good reward function
+should gradually guide the agent toward the final topic-oriented
+goal. We define multiple subgoals between the original document
+and a successful adversarial example to provide positive feedback
+when each subgoal is achieved. We define the anchor document,
+i.e., the document in the returned list whose ranking position is
+higher than the perturbed document at the last state to each query
+in a group, as the subgoal. The anchor is dynamically changed as
+the ranking of the after-attacked document may be updated. The
+reward function should be related to the document’s ranking to
+each query in a group, i.e., a perturbed document should receive
+more rewards if it is ranked higher than the anchor document.
+However, directly using ranking as a reward is sparse.
+We shape the reward using the surrogate model’s relevance
+scores as a potential function. Considering the global effect of the
+attack: (i) If the target document is not ranked higher than its anchor
+document for all queries 𝑞∈𝑄, the attack fails. In this case, we use
+a fixed penalty factor 𝜉as the reward. (ii) Conversely, if the attack
+succeeds, we use the maximum improvement in relevance scores
+between the current perturbed document and the anchor document
+to motivate the agent to learn an effective attack strategy.
+These assumptions lead us to define the topic-oriented reward
+function for a group of queries as follows:
+𝑅(𝑠𝑡,𝑎𝑡) =
+(
+−𝜉,
+if min({ ˜𝑓(𝑞,𝑑𝑡) −˜𝑓(𝑞,𝑑𝐴
+𝑡)}𝑞∈𝑄) < 0
+max({ ˜𝑓(𝑞,𝑑𝑡) −˜𝑓(𝑞,𝑑𝐴
+𝑡)}𝑞∈𝑄) + 𝐶𝑜𝑛𝑠.,
+else,
+(3)
+where 𝐶𝑜𝑛𝑠. is a naturalness constraints, for trigger generation
+𝐶𝑜𝑛𝑠. = 𝛽1𝑆𝐿𝑀+ 𝛽2𝑆𝑁𝑆𝑃, 𝑆𝐿𝑀is a language model score [49], and
+𝑆𝑁𝑆𝑃is a next sentence prediction score [28]. For word substitu-
+tion, 𝐶𝑜𝑛𝑠. = 𝛽3𝑆𝑆𝑆, the 𝑆𝑆𝑆is the semantic similarity between
+the original document and the adversarial example measured by
+the universal sentence encoder (USE) [5]. 𝛽1, 𝛽2, and 𝛽3 are the
+hyperparameters that control the semantic consistency, fluency,
+and semantic similarity, respectively. The surrogate ranking model
+˜𝑓predicts the relevance score between the query-document pair.
+𝑑𝐴
+𝑡represents the anchor documents at time step 𝑡.
+4.3.2
+Policy network. Exploring different document perturba-
+tion methods (actions) requires different learning objectives; thus,
+we have customized the policy network for each action.
+Trigger generation. We train a policy network that determines
+the next generated word based on the existing generated sequence
+to insert at the beginning of the document in turn. The generation
+starts from the first word of trigger. Specifically, every action 𝑎𝑡cor-
+responds to the 𝑡-th trigger word at the time step 𝑡to choose, and is
+initialized with a [𝑀𝐴𝑆𝐾] token. In total, there are 𝑇words gener-
+ated as the entire trigger. The trigger word space is the vocabulary
+of the surrogate ranking model.
+The process proceeds as follows. (i) We use the surrogate model
+˜𝑓to calculate the pairwise loss L𝑅(𝑞𝑖,𝑎𝑡⊕𝑠𝑡−1;𝑑𝐴
+𝑡), where 𝑞𝑖is the
+𝑖-th query in𝑄,𝑑𝐴
+𝑡is the anchor document at 𝑡,𝑠𝑡−1 is the perturbed
+document at 𝑡−1 and 𝑎𝑡⊕𝑠𝑡−1 denotes injecting a new trigger
+word in the position 𝑡. (ii) We obtain the average gradient 𝒈𝑠𝑡−1,𝑖of
+L𝑅(·) with respect to 𝑠𝑡−1. (iii) We calculate dot products between
+the embedding matrix 𝑬˜𝑓in ˜𝑓and 𝒈𝑠𝑡−1,𝑖as the state feature of 𝑠𝑡.
+(iv) We input the state feature to the multi-layer perception (MLP)
+[45], and calculate the probability of any action as
+𝜋(𝑠𝑡) = softmax ©­
+«
+MLP ©­
+«
+|𝑄|
+∑︁
+𝑖
+([𝑬˜𝑓]𝑇· 𝒈𝑠𝑡−1,𝑖)ª®
+¬
+ª®
+¬
+.
+(4)
+The action is sampled using max sampling [50] to sample the word
+with highest probability from the trigger word space, as the next
+trigger word to be added to the trigger, i.e., 𝑎𝑡= max sample(𝜋(𝑠𝑡)).
+Word substitution. Here, we aim to substitute important words
+in the target document 𝑑with synonyms. The action 𝑎𝑡is to select
+the 𝑡-th important word in the document to be substituted, at the
+time step 𝑡. In total,𝑇words in the target document are substituted.
+Following [55], we find the importance words in the document that
+have a strong influence on the rankings.
+The process proceeds as follows. (i) For each word ℎ𝑘in 𝑑, we
+compute its importance score by calculating the gradient 𝒈ℎ𝑘
+𝑠𝑡−1,𝑖of
+the pairwise loss L𝑅(𝑞𝑖,𝑠𝑡−1;𝑑𝐴
+𝑡) of ˜𝑓with respect to its embedding
+vector 𝒆
+˜𝑓
+ℎ𝑘in ˜𝑓, where 𝑠𝑡−1 is the perturbed document at 𝑡−1 .
+(ii) Then the importance score 𝐼ℎ𝑘,𝑖of each word ℎ𝑘is calculated
+by 𝐼ℎ𝑘,𝑖=
+𝒈ℎ𝑘
+𝑠𝑡−1,𝑖
+
+2
+2 . (iii) Finally, we concatenate the word-level
+importance score of every word in the target document as the state
+feature of 𝑠𝑡, and calculate the probability of any action as
+𝜋(𝑠𝑡) =softmax ©­
+«
+MLP ©­
+«
+|𝑄|
+∑︁
+𝑖
+([𝐼ℎ𝑘,𝑖])ª®
+¬
+ª®
+¬
+,𝑘= 1, 2, . . . .
+(5)
+The output of MLP is the probability of each word in the document
+to be replaced next. We use max sampling to sample the important
+word with highest probability in the document and then substitute
+it with a synonym. For synonym replacement, we use the counter-
+fitted word embedding space [36] to obtain synonyms.
+4.4
+Training with policy gradient
+In each episode, a trajectory 𝜏= 𝑠1,𝑎1, . . . ,𝑠𝑇,𝑎𝑇is sampled using
+policy 𝜋. The episode terminates when the step 𝑡reaches the pre-set
+limit 𝑇. The training objective is to maximize 𝐽(𝜃) via:
+∇𝜃𝐽(𝜃) = E𝜋𝜃[∇𝜃log 𝜋𝜃𝑅(𝜏)].
+The solution can be approximated by a Monte Carlo estimator
+[23], i.e., ∇𝜃𝐽(𝜃) ∝Í𝑈
+𝑢=1
+Í𝑇
+𝑡=1 ∇𝜃log 𝜋𝜃(𝑎𝑢,𝑡| 𝑠𝑢,𝑡)𝑅𝑢,𝑡, where 𝜃
+denotes the policy network parameters,𝑈is the number of samples,
+𝑇is the number of steps.
+5
+EXPERIMENTAL SETUP
+In this section, we introduce our experimental settings. The datasets
+and code are available at https://github.com/ict-bigdatalab/TARA.
+
+SIGIR ’23, July 23–27, 2023, Taipei, Taiwan
+Yu-An Liu et al.
+5.1
+Models
+Baselines. We consider two types of adversarial attack baselines:
+trigger-based methods and word substitution methods. We take
+several representative triggers for comparison (with their proposed
+policies of trigger generation): (i) Trigger-based term spamming
+(TS𝑇𝑟𝑖) [19] concatenates randomly sampled terms in the group
+of queries as a trigger and injects it at the beginning of document.
+(ii) HotFlip [13] is a universal text attack method for NLP to find
+the optimal trigger via model gradient. We compute the gradient
+of the surrogate model through pairwise loss. (iii) PAT [28] is a
+gradient-based ranking attack method empowered by the pairwise
+objective, to generate triggers for NRMs. For HotFlip and PAT, we
+sum up the pairwise loss of the target document to each query in a
+group of queries to guide trigger generation.
+As word substitution methods we consider: (i) Substitution-based
+term spamming (TS𝑆𝑢𝑏) [19] randomly chooses a starting position
+in the document and replaces successive words with randomly sam-
+pled terms in a group of queries. (ii) PRADA [55] is a decision-based
+ranking attack method for NRMs, which finds important words in
+the target document for replacement. We average the importance
+weights of each word in the document to each query in a group,
+as the final weight. (iii) Tf-idf simply replaces the top words in the
+document with the highest tf-idf scores based on the queries in a
+group with synonyms.
+Model variants. We implement several variants of RELEVANT
+(RELE. for short), denoted as (i) RELE.𝑇𝐺uses the trigger generation
+strategy as the policy network. (ii) RELE.𝑊𝑆uses the word substitu-
+tion strategy as the policy network. (iii) RELE.𝑇𝐺−𝑁𝐶removes the
+naturalness constraints in the reward of trigger generation strat-
+egy. (iv) RELE.𝑊𝑆−𝑁𝐶removes the naturalness constraints in the
+reward of word substitution strategy.
+5.2
+Implementation details
+For MS MARCO and ClueWeb09-B, initial retrieval is performed
+using the Anserini toolkit [58] with the BM25 model to obtain the
+top 100 ranked documents following [55]. For the environment,
+following [28, 55], we choose the BERT [22] model, which takes the
+concatenated query and document as input and is fine-tuned with
+the relevance labels in MS MARCO training set for Q-MS MARCO
+and ClueWeb09-B training set for Q-ClueWeb09, as the target NRM,
+respectively. We use BERT𝑏𝑎𝑠𝑒as the surrogate model with the
+length 𝑁of the returned list as 100 [55]. We set 𝑘= 1 for MS
+MARCO and 𝑘= 20 for ClueWeb09, due to the different numbers
+of relevant documents per query. The margin 𝜂for the hinge loss
+is set to 1. The settings of the dynamic environments are: (i) For
+document incremental, we first use 60% of the corpus as the initial
+training data, and 10% of the corpus documents are continually
+added to the corpus at each stage. (ii) For document removal, we
+randomly remove 10% of documents from the whole corpus. (iii) For
+ranking-incentivized documents, the documents that are promoted
+more than 20 rankings at each stage are considered abnormal. In
+this way, there are 4 update stages for each dynamic setting.
+For the agent, the discounting factor𝛾is set to 0.9, and the hyper-
+parameters of naturalness constraints (𝛽1, 𝛽2, and 𝛽3) are set to 0.8,
+0.1, and 0.1, respectively. The total time steps 𝑇for trigger gener-
+ation and word substitution policy to 5 and 50, respectively. The
+policy network’s hidden state dimension for both trigger genera-
+tion and word substitution is 200. For fair comparison, we maintain
+the same trigger length and substitution number in all baselines, at
+5 and 50, respectively. In the reward, given the minimum ranking
+improvement of the target document to all queries in a group, if it is
+less than or equal to 0, higher than 1, or higher than 5, the document
+whose ranking position is 1, 5 or 10 places higher than the perturbed
+document is selected as the anchor document, respectively.
+Since the environment is explicit under our task setting, the train-
+ing and testing of our method are performed both on the full dataset,
+which is a reasonable experimental setup [11]. Specifically, when
+the training process of RL ends, the policy network stops updating
+while running another epoch on the full dataset as a testing phase
+to evaluate the performance. In future work, we aim to explore the
+addition of new query groups and new target documents.
+5.3
+Evaluation metrics
+Attack performance. We use three automatic metrics: (i) Q-suc-
+cess rate (QSR) @𝛼(%), which evaluates the percentage of after-at-
+tack documents 𝑑𝑎𝑑𝑣ranked higher than the original documents 𝑑
+for at least 𝛼(%) queries in𝑄. (ii) Average boosted ranks (avg.Boost),
+which evaluates the average improved rankings for each target doc-
+ument to each query in a group. (iii) Boosted top-𝐾rate (T𝐾R) (%),
+which evaluates the percentage of after-attack documents that are
+promoted into top-𝐾to each query in a group. The effectiveness of
+an adversary is better with a higher value for all these metrics.
+Naturalness performance. Here we use the following: (i) Auto-
+matic Spamicity detection, which can detect whether target pages
+are spam or not. Following [28, 55], we adopt the utility-based term
+spamicity method [61] to detect the adversarial examples. (ii) Au-
+tomatic grammar checkers, which calculates the average number
+of errors in the attack sequences. Specifically, we use two online
+grammar checkers, i.e., Grammarly [17] and Chegg Writing [6],
+following [28]. (iii) Human evaluation, which measures the quality
+of the attacked documents following the criteria in [55].
+6
+EXPERIMENTAL RESULTS
+We first compare the attack performance of RELEVANT and base-
+lines in both static and dynamic environments. Then, in the static
+environment, we evaluate the naturalness of adversarial examples,
+analyze the ranking model imitation performance, and examine the
+impact of important hyper-parameters in RELEVANT.
+6.1
+Attack evaluation: Static environment
+Table 2 compares the attack performance in a static environment
+of RELEVANT with trigger generation and word substitution base-
+lines. We have the following overall observations: (i) NRMs do
+inherit adversarial vulnerabilities of deep neural networks and can
+easily be fooled by the attackers. We should, therefore, pay more
+attention to the potential risks of existing NRMs before deploying
+them in the real world. (ii) Trigger generation methods generally
+perform better than word substitution methods. The reason may
+be that trigger generation from the whole vocabulary allows more
+flexible manipulation than synonym replacement from the docu-
+ment itself. Besides, directly adding the trigger may contribute to
+capturing fine-grained interaction signals between query and docu-
+ment. (iii) The performance of most methods in terms of avg.Boost
+
+Topic-oriented Adversarial Attacks against Black-box Neural Ranking Models
+SIGIR ’23, July 23–27, 2023, Taipei, Taiwan
+Table 2: Attack performance under static environment; ∗indicates significant improvements over the best baseline (𝑝≤0.05).
+Method
+Q-MS MARCO
+Q-ClueWeb09
+QSR@50% QSR@75% QSR@100% avg.Boost T10R T5R QSR@50% QSR@75% QSR@100% avg.Boost T10R T5R
+TS𝑇𝑟𝑖
+94.9
+87.9
+33.9
+32.6
+4.3
+1.8
+93.6
+78.0
+50.8
+23.6
+2.3
+1.1
+HotFlip
+50.3
+39.2
+9.6
+8.5
+0.0
+0.0
+48.7
+36.9
+8.2
+6.0
+0.0
+0.0
+PAT
+90.7
+81.1
+27.5
+21.6
+1.3
+0.5
+89.2
+76.3
+40.1
+18.5
+0.0
+0.0
+RELE.𝑇𝐺
+100.0∗
+93.4∗
+48.6∗
+36.7∗
+6.5∗
+3.3∗
+100.0∗
+100.0∗
+70.0∗
+32.1∗
+4.7∗
+2.6∗
+TS𝑆𝑢𝑏
+88.6
+74.7
+18.6
+18.6
+0.8
+0.3
+89.8
+75.2
+46.1
+16.8
+0.8
+0.5
+Tf-idf
+41.6
+32.5
+5.8
+6.9
+0.2
+0.0
+49.0
+36.1
+6.2
+4.3
+0.0
+0.0
+PRADA
+86.0
+72.4
+15.3
+16.9
+0.4
+0.3
+88.8
+75.3
+46.0
+15.6
+0.3
+0.1
+RELE.𝑊𝑆
+93.6∗
+89.2∗
+40.1∗
+27.8∗
+1.5∗
+0.6∗
+95.1∗
+82.6∗
+56.4∗
+26.5∗
+1.4∗
+0.4∗
+Table 3: Attack performance in a dynamic environment; ∗indicates significant improvements over the best baseline (𝑝≤0.05).
+Method
+Q-MS MARCO
+Q-ClueWeb09
+DI
+QSR@50% QSR@75% QSR@100% avg.Boost T10R T5R QSR@50% QSR@75% QSR@100% avg.Boost T10R T5R
+TS𝑇𝑟𝑖
+92.3
+85.3
+31.0
+30.1
+3.9
+1.5
+91.6
+76.3
+48.6
+21.2
+1.9
+0.8
+HotFlip
+32.4
+23.3
+4.9
+4.0
+0.0
+0.0
+30.2
+21.0
+4.4
+3.2
+0.0
+0.0
+PAT
+81.2
+72.3
+21.5
+18.3
+0.9
+0.3
+79.3
+69.2
+32.1
+12.3
+0.0
+0.0
+RELE.𝑇𝐺
+97.7∗
+92.8∗
+37.7∗
+34.2∗
+3.2∗
+2.0∗
+96.4∗
+86.4∗
+66.6∗
+29.6∗
+2.5∗
+1.2∗
+TS𝑆𝑢𝑏
+86.2
+72.5
+16.1
+16.2
+0.6
+0.2
+88.4
+73.1
+45.0
+15.6
+0.6
+0.4
+Tf-idf
+39.5
+30.1
+5.2
+6.1
+0.1
+0.0
+47.8
+35.0
+5.9
+4.0
+0.0
+0.0
+PRADA
+79.8
+62.5
+14.2
+14.0
+0.3
+0.0
+81.2
+66.2
+40.4
+13.7
+0.1
+0.0
+RELE.𝑊𝑆
+91.7∗
+85.3∗
+40.9∗
+24.3∗
+0.9∗
+0.3∗
+93.0∗
+78.2
+51.0∗
+22.9∗
+0.9∗
+0.2∗
+DR
+QSR@50% QSR@75% QSR@100% avg.Boost T10R T5R QSR@50% QSR@75% QSR@100% avg.Boost T10R T5R
+TS𝑇𝑟𝑖
+100.0
+96.9
+53.5
+46.2
+10.1
+5.8
+100.0
+98.1
+69.9
+39.5
+9.2
+3.2
+HotFlip
+62.1
+51.6
+20.5
+18.0
+0.8
+0.3
+60.2
+49.8
+18.9
+17.2
+0.2
+0.0
+PAT
+100.0
+92.3
+39.6
+32.8
+4.5
+1.9
+98.6
+88.3
+52.5
+23.6
+2.5
+1.2
+RELE.𝑇𝐺
+100.0
+100.0
+66.2∗
+55.3∗
+15.8∗8.3∗
+100.0
+100.0
+81.4∗
+49.6∗
+14.2∗4.7∗
+TS𝑆𝑢𝑏
+100.0
+89.6
+30.6
+31.9
+3.2
+1.6
+100.0
+90.6
+60.3
+28.5
+2.6
+1.5
+Tf-idf
+56.4
+43.6
+10.2
+8.6
+0.4
+0.0
+48.9
+39.0
+9.6
+6.2
+0.1
+0.0
+PRADA
+98.8
+83.6
+27.3
+26.9
+1.6
+0.7
+98.3
+82.3
+54.0
+25.1
+1.4
+0.6
+RELE.𝑊𝑆
+100.0
+100.0∗
+57.3∗
+40.2∗
+8.9∗
+4.0∗
+100.0
+93.4
+66.2∗
+36.0∗
+8.0∗
+3.1∗
+RiD
+QSR@50% QSR@75% QSR@100% avg.Boost T10R T5R QSR@50% QSR@75% QSR@100% avg.Boost T10R T5R
+TS𝑇𝑟𝑖
+50.1
+38.6
+9.3
+7.2
+0.0
+0.0
+46.8
+38.2
+8.0
+5.9
+0.0
+0.0
+HotFlip
+32.7
+22.1
+2.5
+3.1
+0.0
+0.0
+31.5
+20.9
+5.2
+1.3
+0.0
+0.0
+PAT
+71.6
+61.6
+9.8
+8.6
+0.0
+0.0
+73.5
+62.4
+36.2
+11.2
+0.0
+0.0
+RELE.𝑇𝐺
+80.5∗
+71.2∗
+19.8∗
+17.4∗
+0.8∗
+0.3∗
+81.2∗
+68.3∗
+30.8∗
+10.8∗
+0.4∗
+0.2∗
+TS𝑆𝑢𝑏
+41.5
+35.1
+6.8
+5.9
+0.0
+0.0
+42.7
+22.1
+6.0
+5.1
+0.0
+0.0
+Tf-idf
+29.8
+16.7
+0.8
+0.6
+0.0
+0.0
+27.5
+12.1
+1.0
+0.3
+0.0
+0.0
+PRADA
+66.2
+49.1
+6.2
+5.8
+0.0
+0.0
+68.3
+55.3
+21.5
+10.1
+0.0
+0.0
+RELE.𝑊𝑆
+76.4∗
+59.2∗
+12.8∗
+11.0∗
+0.3∗
+0.0
+82.0∗
+65.4∗
+35.8∗
+14.0∗
+0.6∗
+0.0
+on Q-ClueWeb09 is lower than that on Q-MS MARCO. The reason
+may be that ClueWeb09’s documents come from unprocessed web
+pages, and the inherent amount of noise could cause the model to
+be insensitive to the small amount of perturbations added. The QSR
+performance on Q-ClueWeb09 is higher than on Q-MS MARCO.
+There are fewer queries in each group in Q-ClueWeb09, making it
+easier to take into account the entire group of queries.
+When we look at the baselines, we find that: (i) Tf-idf and HotFlip
+perform poorly, indicating that boosting the document’s ranks
+under a group of queries is non-trivial, which cannot be solved
+by traditional NLP attack methods or heuristics. The customized
+attack methods for NRMs, i.e., PRADA and PAT, perform better,
+showing the effectiveness of considering the characteristics of IR.
+(ii) TS𝑇𝑟𝑖and TS𝑆𝑢𝑏perform best among the baselines, showing
+that it is easy to fool the NRMs by directly using some query terms
+as a perturbation to the document. However, it can be detected by
+anti-spamming solutions (also observed by [28, 55]).
+Finally, RELEVANT significantly outperforms all baselines in
+terms of attack performance. The RL-based framework is helpful
+by modeling the whole interaction process between the attacker
+and the target NRM and training with more samples (annotated
+with rewards). By leveraging the information of the entire group
+of queries, RELEVANT outperforms paired attack methods which
+customize perturbations for a specific query-document pair.
+6.2
+Attack evaluation: Dynamic environment
+The attack performance under dynamic environments is shown in
+Table 3. The attack baselines are designed for static environments,
+
+SIGIR ’23, July 23–27, 2023, Taipei, Taiwan
+Yu-An Liu et al.
+Table 4: Attack performance comparisons between the full
+version of RELEVANT and RELEVANT without naturalness
+constraints; † indicates significant improvements over the
+full version method (𝑝≤0.05)
+Method
+Q-MS MARCO
+Q-ClueWeb09
+QSR@100% avg.Boost QSR@100% avg.Boost
+RELE.𝑇𝐺
+48.6
+36.7
+70.0
+32.1
+RELE.𝑇𝐺−𝑁𝐶
+55.8†
+39.2†
+75.3†
+36.2†
+RELE.𝑊𝑆
+40.1
+27.8
+56.4
+26.5
+RELE.𝑊𝑆−𝑁𝐶
+45.1†
+33.7†
+62.9†
+30.3†
+and we continue updating their attack strategies along with the
+dynamics of environments. Term Spamming and Tf-idf are one-
+time methods, and the adversarial examples do not change with the
+environment. In three dynamic settings, the model performance
+after each update stage has a consistent change trend. Due to space
+limitations, we only show the performance after the last (4-th) stage.
+As we can see: (i) For document incremental (DI), the attack
+success rate of each method is reduced, indicating that the ad-
+dition of new documents makes the ranking competition more
+intense. (ii) For document removal (DR), as the number of relevant
+documents may decrease, the ranking of adversarial documents
+generated by most attack methods can be improved accordingly.
+(iii) For ranking-incentivized document (RiD), the performance
+of all attack methods decreases as the target model’s ability to
+identify anomalous documents increases. For the one-time attack
+methods (TS𝑇𝑟𝑖, TS𝑆𝑢𝑏and Tf-idf) it is challenging to achieve high
+rankings compared with static environments, indicating that the
+spamming-based attack method easily looses its effectiveness once
+it is struck. (iv) The dynamic environment affects the attack per-
+formance to varying degrees. RELEVANT still performs best; it
+adapts to changes while maintaining the effectiveness of the attack
+as it can keep trying out new judgments about vulnerabilities of
+NRMs through the interaction, which brings better generalizability.
+Re-training the attack method from scratch every time the corpus
+is updated, could incur prohibitively high computational costs. The
+proposed RL-based framework avoids these costs.
+6.3
+Naturalness evaluation
+Attack performance without naturalness constraints. Table 4
+demonstrates the attack performance of the full version RELEVANT
+and RELEVANT without naturalness constraints. Although only
+QSR@100% and avg.Boost are displayed, the trend is consistent
+across all evaluation metrics. Removing the naturalness constraints
+of RELEVANT enhances attack effectiveness but may increase de-
+tection risk. Imperceptibility of perturbations on Q-MS MARCO is
+discussed below, with similar findings on Q-ClueWeb09.
+Automatic spamicity detection. Table 5 lists the automatic spam-
+icity detection results of RELEVANT and baselines. If an example’s
+spamicity score is higher than a detection threshold, it is detected
+as suspected spam content. We observe that: (i) As the threshold
+decreases, the detector becomes stricter and the detection rate in-
+creases for all methods. (ii) Term spamming can be very easily
+detected since it incorporates many query terms into documents.
+(iii) The trigger generation methods have a lower upper bound of de-
+tection rate, due to the use of fewer words for perturbations. (iv) The
+full version of RELEVANT outperforms the baselines significantly
+Table 5: The detection rate (%) via a representative anti-
+spamming method on the Q-MS MARCO.
+Threshold
+0.08
+0.06
+0.04
+0.02
+TS𝑇𝑟𝑖
+24.7
+35.9
+56.3
+80.2
+PAT
+8.0
+14.5
+25.3
+46.2
+RELE.𝑇𝐺−𝑁𝐶
+9.7
+16.9
+30.2
+54.5
+RELE.𝑇𝐺
+6.4
+12.2
+20.8
+38.3
+TS𝑆𝑢𝑏
+67.6
+78.3
+88.9
+97.1
+PRADA
+11.2
+18.4
+30.5
+50.5
+RELE.𝑊𝑆−𝑁𝐶
+9.0
+14.6
+24.6
+46.0
+RELE.𝑊𝑆
+4.5
+8.0
+14.6
+25.6
+Table 6: Online grammar checkers and human evaluation
+results on the Q-MS MARCO.
+Method
+Chegg. Grammar. Impercept. kappa Fluency Kendall
+Original
+30
+56
+0.89
+0.53
+4.68
+0.63
+TS𝑇𝑟𝑖
+42
+85
+0.05
+0.68
+2.35
+0.82
+PAT
+33
+65
+0.73
+0.46
+3.85
+0.91
+RELE.𝑇𝐺
+32
+63
+0.82
+0.50
+4.21
+0.71
+RELE.𝑇𝐺−𝑁𝐶
+37
+76
+0.14
+0.59
+2.89
+0.85
+TS𝑆𝑢𝑏
+62
+111
+0.04
+0.65
+1.86
+0.79
+PRADA
+53
+97
+0.62
+0.42
+3.56
+0.92
+RELE.𝑊𝑆
+39
+73
+0.75
+0.48
+4.13
+0.73
+RELE.𝑊𝑆−𝑁𝐶
+59
+107
+0.34
+0.53
+3.16
+0.95
+(p-value < 0.05), indicating that RELEVANT with naturalness con-
+straints helps adversarial documents to avoid suspicion.
+Automatic grammar checker and human evaluation. Table
+6 lists the results of the automatic grammar checker and human
+evaluation, including the annotation consistency test results (the
+Kappa value and Kendall’s Tau coefficient). For human evaluation,
+we recruit three annotators to annotate 50 randomly sampled ad-
+versarial examples and the corresponding documents of each attack
+method [28]. Following [55], annotators score the Fluency of the
+mixed examples from 1 to 5; higher scores indicate a more fluent
+examples. For Imperceptibility, annotators judge whether an exam-
+ple is attacked (labeled as 0) or not (labeled as 1). We observe that:
+(i) Trigger generation methods generally achieve better fluency
+and are not easily detected by annotators than word substitution
+methods. (ii) The Term Spamming method performs poorly under
+the naturalness metrics, due to the semantic irrelevance between
+the query terms and the document. (iii) Attack methods with natu-
+ralness constraint (i.e., PAT, PRADA, RELEVANT) lag behind the
+original samples, which indicates that it is not easy to make the
+attack examples invisible. Although there is still a gap between the
+original document and its adversarial example, RELEVANT achieves
+the best naturalness performance, indicating that the naturalness
+constraints help generate a natural-looking trigger or synonym.
+Example triggers. We randomly sample a group of queries from
+Q-MS MARCO, in which the query (ID=419333) from MS MARCO
+is “is nizuc resort all inclusive”, and the keywords for its group is
+“all inclusive resorts”. The target document (ID=D366143) is a resort
+hotel page, whose average rank to all the queries in the group is
+98.5. The document begins with: “about the Pearl South Padre ""Skip
+to main content Account Sign in to see exclusive Member Discount
+
+Topic-oriented Adversarial Attacks against Black-box Neural Ranking Models
+SIGIR ’23, July 23–27, 2023, Taipei, Taiwan
+Table 7: Attack performance comparisons of RELEVANT between the black-box and the white-box attack setting.
+Method
+Q-MS MARCO
+Q-ClueWeb09
+QSR@50% QSR@75% QSR@100% avg.Boost T10R T5R QSR@50% QSR@75% QSR@100% avg.Boost T10R T5R
+RELE.𝑇𝐺
+100.0
+93.4
+48.6
+36.7
+6.5
+3.3
+100.0
+100.0
+70.0
+32.1
+4.7
+2.6
+White-RELE.𝑇𝐺
+100.0
+94.1
+49.8
+37.2
+6.9
+3.5
+100.0
+100.0
+69.5
+32.2
+4.5
+2.5
+RELE.𝑊𝑆
+93.6
+89.2
+40.1
+27.8
+1.5
+0.6
+95.1
+82.6
+56.4
+26.5
+2.4
+1.4
+White-RELE.𝑊𝑆
+94.9
+90.6
+40.8
+28.4
+1.8
+1.0
+95.6
+83.0
+56.2
+26.5
+2.6
+1.6
+Table 8: Attack performance of different hyper-parameter settings on the Q-MS MARCO. The QSR denotes QSR@100%.
+Method
+Position of trigger injection
+Method
+Number of substituted words
+Beginning
+Middle
+End
+50
+30
+10
+QSR
+avg.Boost
+QSR
+avg.Boost
+QSR
+avg.Boost
+QSR
+avg.Boost
+QSR
+avg.Boost
+QSR
+avg.Boost
+PAT
+27.5
+21.6
+18.9
+14.2
+16.5
+13.2
+PRADA
+15.3
+16.9
+10.5
+8.2
+4.6
+4.1
+RELE.𝑇𝐺
+48.6
+36.7
+27.5
+25.3
+25.2
+23.3
+RELE.𝑊𝑆
+40.1
+27.8
+31.3
+21.4
+12.5
+11.1
+...” The trigger generated by our RELEVANT𝑇𝐺and PAT is “all inclu-
+sive resort was” and “inclusiveb resortrao taxi all”, respectively. By
+adding the trigger generated by our RELEVANT𝑇𝐺at the beginning
+of the document, the average rank of the adversarial document is
+higher than that generated by PAT, i.e., 18.3 vs. 31.6. Besides, the
+trigger generated by RELEVANT𝑇𝐺is more natural-looking and
+consistent with the document than that generated by PAT.
+6.4
+Black-box vs. White-box attack
+In this work, we focus on the decision-based black-box attack set-
+ting because it is close to the real-world search scenario. It is also
+meaningful to explore the white-box setting to further understand
+the ranking model’s robustness against the TARA. First, we evalu-
+ate the ranking performance of the surrogate model and the target
+model over all the queries on the dev sets of the MS MARCO and
+ClueWeb09-B, respectively. The MRR@10 of the target and surro-
+gate model on the MS MARCO is 38.61 and 35.40, respectively. The
+nDCG@20 of the target and surrogate model on the ClueWeb09-B
+is 27.53 and 24.95, respectively.
+Then, to conduct white-box TARA, we directly set the surrogate
+model as the target NRM and keep other components the same in
+our RELEVANT𝑇𝐺and RELEVANT𝑊𝑆, for which we write White-
+RELE.𝑇𝐺and White-RELE.𝑊𝑆, respectively. The results are shown
+in Table 7. Even though the white-box setting has full access to
+the target ranking model, the black-box attack achieves similar
+performance. This result shows that the surrogate model is suffi-
+cient to mimic the behavior of the target model, which provides
+the conditions for the transformation of the attack effect of the
+adversarial examples to the target model.
+6.5
+Hyper-parameter sensitivity
+We evaluate RELEVANT with different hyper-parameter settings
+to investigate how they affect the attack performance on the Q-MS
+MARCO dataset. The results are shown in Table 8.
+We first consider the position of trigger injection. For RELEV-
+ANT𝑇𝐺, we to insert triggers at different positions, i.e., the docu-
+ments’ Beginning, Middle, and End. We observe that inserting the
+trigger at the document’s beginning achieves the best performance,
+indicating that the information contained at the beginning of the
+document matters for interacting with the query. Next, we consider
+the number of substituted words. For RELEVANT𝑊𝑆, we substitute
+different numbers of words (i.e., 10, 30, and 50) in the document. We
+observe that the attack performance of PRADA and RELEVANT𝑊𝑆
+gradually increase with the increase of the number of substituted
+words, respectively. However, adding the triggers at the beginning
+of the target document or substituting more words may lead to the
+attack easily being detected. In future work, we will explore more
+flexible ways to achieve the balance between attack performance
+and the imperceptibility of adversarial perturbations.
+7
+CONCLUSION AND FUTURE WORK
+In this work, we proposed a challenging TARA task against black-
+box NRMs under both static and dynamic environments, and showed
+the existence of small general perturbations that can promote the
+target document in rankings with respect to a group of queries with
+the same topic. We developed an RL-based framework RELEVANT
+to track the attacker’s interactive attack process and continuously
+update the attack strategies based on the topic-oriented rewards.
+The proposed method along with extensive experiment results re-
+veal the vulnerability and risk of black-box text ranking systems.
+In future work, we would like to explore to adaptively determine
+the level (character, word, and sentence) of adversarial perturba-
+tions for various scenarios and target documents in RELEVANT.
+Beyond the TARA task, the universal adversarial ranking attacks
+to discover input-agnostic perturbations against NRMs appears to
+be a promising future direction.
+ACKNOWLEDGMENTS
+This work was funded by the National Natural Science Founda-
+tion of China (NSFC) under Grants No. 62006218 and 61902381,
+the China Scholarship Council under Grants No. 202104910234,
+the Youth Innovation Promotion Association CAS under Grants
+No. 20144310 and 2021100, the CAS Project for Young Scientists in
+Basic Research under Grant No. YSBR-034, the Innovation Project
+of ICT CAS under Grants No. E261090, the Young Elite Scientist
+Sponsorship Program by CAST under Grants No. YESS20200121,
+and the Lenovo-CAS Joint Lab Youth Scientist Project. This work
+was also (partially) funded by the Hybrid Intelligence Center, a 10-
+year program funded by the Dutch Ministry of Education, Culture
+and Science through the Dutch Research Council, https://hybrid-
+intelligence-centre.nl. All content represents the opinion of the
+authors, which is not necessarily shared or endorsed by their re-
+spective employers and/or sponsors.
+
+SIGIR ’23, July 23–27, 2023, Taipei, Taiwan
+Yu-An Liu et al.
+REFERENCES
+[1] Issa Annamoradnejad. 2020. ColBERT: Using BERT Sentence Embedding for
+Humor Detection. arXiv: Computation and Language (2020).
+[2] Kai Arulkumaran, Marc Peter Deisenroth, Miles Brundage, and Anil Anthony
+Bharath. 2017. Deep Reinforcement Learning: A Brief Survey. IEEE Signal
+Processing Magazine 34, 6 (2017), 26–38.
+[3] Juan C. Caicedo and Svetlana Lazebnik. 2015. Active Object Localization with
+Deep Reinforcement Learning. In ICCV.
+[4] Carlos Castillo and Brian D. Davison. 2011. Adversarial Web Search. Foundations
+and Trends in Information Retrieval 4, 5 (2011), 377–486.
+[5] Daniel Cer, Yinfei Yang, Sheng-yi Kong, Nan Hua, Nicole Limtiaco, Rhomni St
+John, Noah Constant, Mario Guajardo-Cespedes, Steve Yuan, Chris Tar, et al.
+2018. Universal Sentence Encoder. arXiv preprint arXiv:1803.11175 (2018).
+[6] Chegg Writing. 2023. Grammar Checker. https://writing.chegg.com/.
+[7] Mingyang Chen, Junda Lu, Yi Wang, Jianbin Qin, and Wei Wang. 2021. DAIR: A
+Query-Efficient Decision-based Attack on Image Retrieval Systems. SIGIR.
+[8] Charles L Clarke, Nick Craswell, and Ian Soboroff. 2009. Overview of the TREC
+2009 Web Track. Technical Report. Waterloo University.
+[9] Charles L Clarke, Nick Craswell, and Ellen M Voorhees. 2012. Overview of the
+TREC 2012 Web Track. Technical Report. NIST Gaithersburg MD.
+[10] Nick Craswell, Daniel Campos, Bhaskar Mitra, Emine Yilmaz, and Bodo Billerbeck.
+2020. ORCAS: 20 Million Clicked Query-document Pairs for Analyzing Search.
+In CIKM.
+[11] Giuseppe Cuccu, Julian Togelius, and Philippe Cudré-Mauroux. 2019. Playing
+Atari with Six Neurons. In AAMAS.
+[12] Zhuyun Dai and Jamie Callan. 2019. Deeper Text Understanding for IR with
+Contextual Neural Language Modeling. In SIGIR.
+[13] Javid Ebrahimi, Anyi Rao, Daniel Lowd, and Dejing Dou. 2017. HotFlip: White-
+Box Adversarial Examples for Text Classification. ACL.
+[14] Yixing Fan, Xiaohui Xie, Yinqiong Cai, Jia Chen, Xinyu Ma, Xiangsheng Li, Ruqing
+Zhang, and Jiafeng Guo. 2022. Pre-training Methods in Information Retrieval.
+Foundations and Trends in Information Retrieval 16, 3 (2022), 178–317.
+[15] Ian J Goodfellow, Jonathon Shlens, and Christian Szegedy. 2015. Explaining and
+Harnessing Adversarial Examples. In ICLR.
+[16] Gregory Goren, Oren Kurland, Moshe Tennenholtz, and Fiana Raiber. 2020.
+Ranking-Incentivized Quality Preserving Content Modification. In SIGIR.
+[17] Grammarly. 2023. Writing Assistance. https://app.grammarly.com/.
+[18] Jiafeng Guo, Yixing Fan, Qingyao Ai, and W Bruce Croft. 2016. A deep relevance
+matching model for ad-hoc retrieval. In CIKM. 55–64.
+[19] Zoltan Gyongyi and Hector Garcia-Molina. 2005. Web Spam Taxonomy. In
+AIRWeb.
+[20] Jin Huang, Harrie Oosterhuis, Bunyamin Cetinkaya, Thijs Rood, and Maarten de
+Rijke. 2022. State Encoders in Reinforcement Learning for Recommendation: A
+Reproducibility Study. In SIGIR. 2018–2023.
+[21] Di Jin, Zhijing Jin, Joey Tianyi Zhou, and Peter Szolovits. 2020. Is BERT Really
+Robust? A Strong Baseline for Natural Language Attack on Text Classification
+and Entailment. In AAAI.
+[22] Jacob Devlin Ming-Wei Chang Kenton and Lee Kristina Toutanova. 2019. BERT:
+Pre-training of Deep Bidirectional Transformers for Language Understanding. In
+NAACL-HLT.
+[23] Levente Kocsis and Csaba Szepesvári. 2006. Bandit Based Monte-Carlo Planning.
+In ECML.
+[24] Oren Kurland and Moshe Tennenholtz. 2022. Competitive Search. In SIGIR.
+[25] Yann LeCun, Yoshua Bengio, and Geoffrey Hinton. 2015. Deep Learning. Nature
+521, 7553 (2015), 436–444.
+[26] Hang Li. 2014. Learning to Rank for Information Retrieval and Natural Language
+Processing. Synthesis Lectures on Human Language Technologies 7, 3 (2014), 1–121.
+[27] Xiaodan Li, Jinfeng Li, Yuefeng Chen, Shaokai Ye, Yuan He, Shuhui Wang, Hang
+Su, and Hui Xue. 2021. Qair: Practical Query-efficient Black-box Attacks for
+Image Retrieval. In CVPR.
+[28] Jiawei Liu, Yangyang Kang, Di Tang, Kaisong Song, Changlong Sun, Xiaofeng
+Wang, Wei Lu, and Xiaozhong Liu. 2022. Order-Disorder: Imitation Adversarial
+Attacks for Black-box Neural Ranking Models. In CCS. 2025–2039.
+[29] Tie-Yan Liu. 2009. Learning to Rank for Information Retrieval. Foundations and
+Trends in Information Retrieval 3, 3 (2009), 225–331.
+[30] Xinyu Ma, Jiafeng Guo, Ruqing Zhang, Yixing Fan, Xiang Ji, and Xueqi Cheng.
+2021. PROP: Pre-training with Representative Words Prediction for Ad-hoc
+Retrieval. In WSDM.
+[31] Zhengyi Ma, Zhicheng Dou, Wei Xu, Xinyu Zhang, Hao Jiang, Zhao Cao, and
+Ji-Rong Wen. 2021. Pre-training for Ad-hoc Retrieval: Hyperlink Is Also You
+Need. In CIKM.
+[32] Aleksander Madry, Aleksandar Makelov, Ludwig Schmidt, Dimitris Tsipras, and
+Adrian Vladu. 2018. Towards Deep Learning Models Resistant to Adversarial
+Attacks. ICLR.
+[33] Gallil Maimon and Lior Rokach. 2022. A Universal Adversarial Policy for Text
+Classifiers. Neural Networks 153 (2022), 282–291.
+[34] Bhaskar Mitra, Fernando Diaz, and Nick Craswell. 2017. Learning to Match Using
+Local and Distributed Representations of Text for Web Search. In WWW.
+[35] Seyed-Mohsen Moosavi-Dezfooli, Alhussein Fawzi, Omar Fawzi, and Pascal
+Frossard. 2017. Universal adversarial perturbations. In CVPR.
+[36] Nikola Mrkšić, Diarmuid Ó Séaghdha, Blaise Thomson, Milica Gasic, Lina Maria
+Rojas-Barahona, Pei-Hao Su, David Vandyke, Tsung-Hsien Wen, and Steve Young.
+2016. Counter-fitting Word Vectors to Linguistic Constraints. In NAACL.
+[37] Tri Nguyen, Mir Rosenberg, Xia Song, Jianfeng Gao, Saurabh Tiwary, Rangan
+Majumder, and Li Deng. 2016. MS MARCO: A Human Generated Machine
+Reading Comprehension Dataset. In CoCo@NIPS.
+[38] Rodrigo Nogueira and Kyunghyun Cho. 2019. Passage Re-ranking with BERT.
+arXiv preprint arXiv:1901.04085 (2019).
+[39] Kezban Dilek Onal, Ye Zhang, Ismail Sengor Altingovde, Md. Mustafizur Rah-
+man, Pinar Karagoz, Alexander Braylan, Brandon Dang, Heng-Lu Chang, Henna
+Kim, Quinten McNamara, Aaron Angert, Edward Banner, Vivek Khetan, Tyler
+McDonnell, An Thanh Nguyen, Dan Xu, Byron C. Wallace, Maarten de Rijke,
+and Matthew Lease. 2018. Neural Information Retrieval: At the End of the Early
+Years. Information Retrieval 21, 2–3 (2018), 111–182.
+[40] Nicolas Papernot, Patrick McDaniel, Ian Goodfellow, Somesh Jha, Z Berkay Celik,
+and Ananthram Swami. 2017. Practical Black-box Attacks Against Machine
+Learning. In CCS.
+[41] Jay Ponte and W. Bruce Croft. 1998. A Language Modeling Approach to Informa-
+tion Retrieval. SIGIR.
+[42] Nisarg Raval and Manisha Verma. 2020. One Word at a Time: Adversarial Attacks
+on Retrieval Models. arXiv preprint arXiv:2008.02197 (2020).
+[43] Nils Reimers and Iryna Gurevych. 2019. Sentence-BERT: Sentence Embeddings
+using Siamese BERT-Networks. In EMNLP.
+[44] Stephen Robertson and S. Walker. 1994. Some Simple Effective Approximations
+to the 2-Poisson Model for Probabilistic Weighted Retrieval. SIGIR.
+[45] David E Rumelhart, Geoffrey E Hinton, and Ronald J Williams. 1985. Learning
+Internal Representations by Error Propagation. Technical Report. California Univ
+San Diego La Jolla Inst for Cognitive Science.
+[46] Gerard Salton, A. Wong, and C. S. Yang. 1975. A Vector Space Model for Automatic
+Indexing. Commun. ACM 18, 11 (1975), 613–620.
+[47] David Silver, Aja Huang, Chris J Maddison, Arthur Guez, Laurent Sifre, George
+Van Den Driessche, Julian Schrittwieser, Ioannis Antonoglou, Veda Panneershel-
+vam, Marc Lanctot, Sander Dieleman, Dominik Grewe, John Nham, Nal Kalch-
+brenner, Ilya Sutskever, Timothy Lillicrap, Madeleine Leach, Koray Kavukcuoglu,
+Thore Graepel, and Demis Hassabis. 2016. Mastering the Game of Go with Deep
+Neural Networks and Tree Search. Nature 529, 7587 (2016), 484–489.
+[48] Congzheng Song, Alexander M. Rush, and Vitaly Shmatikov. 2020. Adversarial
+Semantic Collisions. EMNLP.
+[49] Liwei Song, Xinwei Yu, Hsuan-Tung Peng, and Karthik Narasimhan. 2021. Uni-
+versal Adversarial Attacks with Natural Triggers for Text Classification. NAACL.
+[50] Richard S. Sutton and Andrew G. Barto. 2018. Reinforcement Learning: An Intro-
+duction. MIT Press.
+[51] Christian Szegedy, Wojciech Zaremba, Ilya Sutskever, Joan Bruna, Dumitru Erhan,
+Ian Goodfellow, and Rob Fergus. 2014. Intriguing Properties of Neural Networks.
+In ICLR.
+[52] Prashanth Vijayaraghavan and Deb Roy. 2019. Generating Black-box Adversarial
+Examples for Text Classifiers Using a Deep Reinforced Model. In ECML PKDD.
+[53] Eric Wallace, Shi Feng, Nikhil Kandpal, Matt Gardner, and Sameer Singh. 2019.
+Universal Adversarial Triggers for Attacking and Analyzing NLP. EMNLP.
+[54] Yumeng Wang, Lijun Lyu, and Avishek Anand. 2022. BERT Rankers are Brittle:
+A Study using Adversarial Document Perturbations. In ICTIR.
+[55] Chen Wu, Ruqing Zhang, Jiafeng Guo, Maarten de Rijke, Yixing Fan, and Xueqi
+Cheng. 2023. PRADA: Practical Black-Box Adversarial Attacks against Neural
+Ranking Models. ACM Transactions on Information Systems 41, 4 (2023), Article
+89.
+[56] Chen Wu, Ruqing Zhang, Jiafeng Guo, Yixing Fan, and Xueqi Cheng. 2023. Are
+Neural Ranking Models Robust? ACM Transactions on Information Systems 41, 2
+(2023), Article 29.
+[57] Jingjing Xu, Liang Zhao, Hanqi Yan, Qi Zeng, Yun Liang, and Xu Sun. 2019. Lexi-
+calAT: Lexical-based Adversarial Reinforcement Training for Robust Sentiment
+Classification. In EMNLP-IJCNLP.
+[58] Peilin Yang, Hui Fang, and Jimmy Lin. 2018. Anserini: Reproducible Ranking
+Baselines Using Lucene. Journal of Data and Information Quality 10, 4 (2018),
+Article 16.
+[59] Lantao Yu, Weinan Zhang, Jun Wang, and Yong Yu. 2017. SeqGAN: Sequence
+Generative Adversarial Nets with Policy Gradient. In AAAI.
+[60] Wei Emma Zhang, Quan Z Sheng, Ahoud Alhazmi, and Chenliang Li. 2020.
+Adversarial Attacks on Deep-learning Models in Natural Language Processing:
+A Survey. ACM Transactions on Intelligent Systems and Technology 11, 3 (2020),
+Article 24.
+[61] Bin Zhou and Jian Pei. 2009. OSD: An Online Web Spam Detection System. In
+KDD, Vol. 9.
+[62] Wei Zou, Shujian Huang, Jun Xie, Xinyu Dai, and Jiajun Chen. 2020. A Reinforced
+Generation of Adversarial Examples for Neural Machine Translation. In ACL.","https://arxiv.org/pdf/2304.14867","semantic_scholar_pdf","0.003944945987313986","3","2","0.8","The paper discusses adversarial attacks on neural ranking models, which could be relevant to the robustness of search APIs mentioned in the query."
+"5","Predictive Uncertainty-based Bias Mitigation in Ranking","2023","International Conference on Information and Knowledge Management","Maria Heuss, Daniel Cohen, Masoud Mansoury, M. de Rijke, Carsten Eickhoff","15","Societal biases that are contained in retrieved documents have received increased interest. Such biases, which are often prevalent in the training data and learned by the model, can cause societal harms, by misrepresenting certain groups, and by enforcing stereotypes. Mitigating such biases demands algorithms that balance the trade-off between maximized utility for the user with fairness objectives, which incentivize unbiased rankings. Prior work on bias mitigation often assumes that ranking scores, which correspond to the utility that a document holds for a user, can be accurately determined. In reality, there is always a degree of uncertainty in the estimate of expected document utility. This uncertainty can be approximated by viewing ranking models through a Bayesian perspective, where the standard deterministic score becomes a distribution. In this work, we investigate whether uncertainty estimates can be used to decrease the amount of bias in the ranked results, while minimizing loss in measured utility. We introduce a simple method that uses the uncertainty of the ranking scores for an uncertainty-aware, post hoc approach to bias mitigation. We compare our proposed method with existing baselines for bias mitigation with respect to the utility-fairness trade-off, the controllability of methods, and computational costs. We show that an uncertainty-based approach can provide an intuitive and flexible trade-off that outperforms all baselines without additional training requirements, allowing for the post hoc use of this approach on top of arbitrary retrieval models.","Predictive Uncertainty-based Bias Mitigation in Ranking
+Maria Heuss
+University of Amsterdam, Amsterdam
+The Netherlands
+m.c.heuss@uva.nl
+Daniel Cohen
+Dataminr, NYC, USA
+daniel.cohen@dataminr.com
+Masoud Mansoury
+University of Amsterdam
+Discovery Lab, Elsevier
+Amsterdam, The Netherlands
+m.mansoury@uva.nl
+Maarten de Rijke
+University of Amsterdam, Amsterdam
+The Netherlands
+m.derijke@uva.nl
+Carsten Eickhoff
+University of Tübingen, Tübingen
+Germany
+c.eickhoff@acm.org
+ABSTRACT
+Societal biases that are contained in retrieved documents have
+received increased interest. Such biases, which are often prevalent in
+the training data and learned by the model, can cause societal harms,
+by misrepresenting certain groups, and by enforcing stereotypes.
+Mitigating such biases demands algorithms that balance the trade-
+off between maximized utility for the user with fairness objectives,
+which incentivize unbiased rankings. Prior work on bias mitigation
+often assumes that ranking scores, which correspond to the utility
+that a document holds for a user, can be accurately determined. In
+reality, there is always a degree of uncertainty in the estimate of
+expected document utility. This uncertainty can be approximated
+by viewing ranking models through a Bayesian perspective, where
+the standard deterministic score becomes a distribution.
+In this work, we investigate whether uncertainty estimates can be
+used to decrease the amount of bias in the ranked results, while min-
+imizing loss in measured utility. We introduce a simple method that
+uses the uncertainty of the ranking scores for an uncertainty-aware,
+post hoc approach to bias mitigation. We compare our proposed
+method with existing baselines for bias mitigation with respect to
+the utility-fairness trade-off, the controllability of methods, and
+computational costs. We show that an uncertainty-based approach
+can provide an intuitive and flexible trade-off that outperforms all
+baselines without additional training requirements, allowing for the
+post hoc use of this approach on top of arbitrary retrieval models.
+CCS CONCEPTS
+• Information systems →Retrieval models and ranking; Eval-
+uation of retrieval results.
+KEYWORDS
+Mitigating bias, Fairness, Uncertainty, Utility-fairness trade-off
+ACM Reference Format:
+Maria Heuss, Daniel Cohen, Masoud Mansoury, Maarten de Rijke, and Carsten
+Eickhoff. 2023. Predictive Uncertainty-based Bias Mitigation in Ranking.
+This work is licensed under a Creative Commons Attribution
+International 4.0 License.
+CIKM ’23, October 21–25, 2023, Birmingham, United Kingdom
+© 2023 Copyright held by the owner/author(s).
+ACM ISBN 979-8-4007-0124-5/23/10.
+https://doi.org/10.1145/3583780.3615011
+In Proceedings of the 32nd ACM International Conference on Information
+and Knowledge Management (CIKM ’23), October 21–25, 2023, Birmingham,
+United Kingdom. ACM, New York, NY, USA, 11 pages. https://doi.org/10.
+1145/3583780.3615011
+1
+INTRODUCTION
+The probability ranking principle (PRP) [36] states that, for optimal
+retrieval, the documents should be ranked in order of the predicted
+probability of relevance to the user. While this principle is ideal with
+respect to user utility, a ranking approach that solely relies on this
+principle can lead to an unfair treatment of the documents through
+unfair exposure and learned historical biases that are implicit in
+the data [3, 48]. This realization has led to a broad range of work
+in the field of fair ranking, where ways of ranking are explored
+that do not always strictly follow the PRP, but instead correct for
+such historical biases and distribute exposure more fairly [4, 13, 31].
+Such biases can be reflected in different ways, e.g., models can be
+biased to over proportionally favor members of one group over
+another [1]. In this work, we follow Rekabsaz et al. [33], and say
+that a ranking model is biased, if documents that contain biases or
+stereotypes towards a protected group, e.g., people identifying with
+a certain gender, are being placed in ranked lists for queries that
+should be inherently neutral.
+Using uncertainty to mitigate biases and improve fairness.
+Recent work has highlighted how learned ranking models violate
+the PRP – that each score is not well calibrated, and that learned
+ranking models do not provide an equally reliable estimate of a
+document’s relevance [8, 32]. In this work, we take advantage of
+this violation of assumptions to produce a fair ranking with minimal
+utility loss. Rather than relying on a deterministic score, we consider
+the uncertainty of the model’s estimate to violate the PRP in an
+informed manner by focusing on the most uncertain documents.
+Our proposed method, called Predictive Uncertainty based Fair
+Ranking (PUFR) exploits knowledge about the certainty of the
+predicted relevance scores for mitigating bias by intervening at
+the scoring distribution, making it a post-processing method that
+is easy to use on top of arbitrary ranking models. Furthermore,
+PUFR does not require any training or fine-tuning of supervised
+models. Rather, given a ranked list of documents generated by a
+ranking model (most likely biased), PUFR leverages the uncertainty
+of the predicted scores assigned to the candidate documents by the
+ranking model to modify the ranked list among the most uncertain
+positions to generate a fairer ranking. PUFR aims to reduce the
+arXiv:2309.09833v1  [cs.IR]  18 Sep 2023
+
+CIKM ’23, October 21–25, 2023, Birmingham, United Kingdom
+Maria Heuss, Daniel Cohen, Masoud Mansoury, Maarten de Rijke, and Carsten Eickhoff
+(a)
+(b)
+(c)
+(d)
+Figure 1: Visualization of our method PUFR. Next to the
+mean ranking scores PUFR also considers the score distribu-
+tion that we obtained from the ranking model (1a). Through
+intersecting confidence intervals (1b) that allow us to adjust
+the scores (1c) such that a not biased document, visualized in
+green, is swapping place with a higher ranked, biased docu-
+ment (1d).
+impact of biased documents, while adhering to the PRP as closely
+as possible, only intervening in places where the ranking model
+was not very certain to begin with.
+Additionally, we introduce an entirely post hoc uncertainty quan-
+tification procedure, based on Laplace approximation, that allows
+PUFR to approximate the uncertainty for any off the shelf model
+without access to the training data or optimization procedure. This
+is in contrast to past work that requires a specific training regime
+to produce the uncertainty scores for each candidate [8, 9, 32, 47].
+Motivating example. In Fig. 1, we visualize our approach to predic-
+tive uncertainty-based fairness, PUFR. In this example, the objective
+is to promote the unbiased documents (marked in green) to appear
+on top of the ranked result. We start by considering not only the
+mean ranking score but also the score distribution (uncertainty) as
+visualized with the cross resp. curve in Fig. 1a. We chose confidence
+intervals relative to the standard deviation in which we allow PUFR
+to adjust the scores for each document, as can be seen in Fig. 1b.
+Depending on whether a document is biased or not, we increase
+the score in this confidence interval if the document is unbiased or
+decrease it otherwise as visualized with the green/red crosses in
+Fig. 1c. As the confidence intervals of the second (D2) and third (D3)
+documents intersect, this changes the order of these scores. After
+re-ranking with respect to the newly obtained scores, the protected
+document D3 has swapped place with the non-protected document
+D2 as seen in Fig 1d. As there are minimal computational costs for
+PUFR, developers/users have the freedom to modify the trade-off
+between utility and fairness with minimal costs for their use-cases.
+Our contributions. We summarize our contributions as follows:
+• We introduce the notion of uncertainty-based fair ranking and
+analyze the potential of using the model uncertainty w.r.t. the
+ranking scores for bias mitigation.
+• We define PUFR, an intuitive re-ranking approach that takes as
+input the ranking score distribution and calculates new ranking
+scores that can be used to create a less biased ranked list, while
+still preserving some certainty guarantees.
+• We compare PUFR to several in- and post-processing bias miti-
+gation methods and show that it outperforms all baselines, while
+being computationally much less expensive than some of them.
+Moreover, we demonstrate that PUFR is easily controllable with
+respect to the trade-off between fairness and utility, making it
+practical for use in real-life ranking applications.
+2
+RELATED WORK
+2.1
+Uncertainty in ranking
+Zhu et al. [54] introduce the notion of considering a model’s confi-
+dence when ranking documents. The authors view the confidence
+of a score based on the probabilistic model’s own estimate – the
+variance. Alternatively, we can assume a Bayesian perspective that
+considers how well the training data support the current model.
+As this approach does not rely on a probabilistic ranking model, it
+complements current ranking regimes. Penha and Hauff [32] first
+introduce this notion of uncertainty into conversational retrieval by
+incorporating dropout into a BERT architecture at inference time.
+The ranking score is then modified by an uncertainty measure to
+improve the final re-ranking. Cohen et al. [9] suggest a similar ap-
+proach for ad hoc retrieval where only the last layer’s uncertainty
+is measured to offset both the complexity of a neural model and
+the size of the document set with similar re-ranking improvements.
+Yang et al. [46] extend the above work by leveraging the uncer-
+tainty estimate to improve the exploration of an online learning to
+rank model. Rather than performing uncertainty-aware re-ranking,
+the uncertainty estimate is used to take an optimistic perspective
+on candidate documents to reduce the exploitation bias commonly
+found in an online learning to rank setting.
+2.2
+Mitigating bias and fair ranking
+Recent years have seen a broad range of research on uncovering
+and mitigating biases in different information retrieval systems,
+such as biases in talent pool [16] and resume search [7] and the
+reinforcement of gender biases through search engines [14]. Rek-
+absaz and Schedl [34] explore the extent to which documents with
+gender bias can be found in the retrieved results of different neural
+retrieval models. Other work focuses more on the mitigation of such
+biases [e.g., 33, 53], where models are optimized to contain fewer bi-
+ased documents for queries that are inherently unbiased. Rekabsaz
+et al. [33] use adversarial learning to remove gender bias from the
+trained model, Zerveas et al. [53] optimize the query representation
+from a previously trained architecture instead.
+Mitigating biases is often framed as a fairness task. Zehlike et al.
+[51, 52] introduce a classification framework for fair ranking ap-
+proaches, which we partly use to position our work in the ex-
+isting fair ranking literature. As opposed to score-based fairness
+[5, 21, 42, 45], where the ranking scores are assumed to be known,
+
+Predictive Uncertainty-based Bias Mitigation in Ranking
+CIKM ’23, October 21–25, 2023, Birmingham, United Kingdom
+in this work we focus on supervised learning to rank, where the
+ranking scores need to be determined with a ranking model.
+A large body of work focuses on merit-based fairness, where the
+goal is to distribute the user attention in some way proportional to
+the merit of either individual documents (individual fairness [e.g.,
+19, 25, 38]) or groups of documents [e.g., 3, 39, 44]. In contrast,
+other work [e.g., 48, 50] focuses on representational fairness, which
+is concerned with removing historical biases from the ranking or
+representing documents from different groups fairly w.r.t. some
+demographic within the ranking.
+Independently of the notion of fairness, we differentiate between
+pre-processing [24], in-processing [2, 3, 33, 39, 40, 48, 49, 53], and
+post-processing [11, 22, 50] approaches to fairness interventions.
+These methods come into play either before the model is being
+trained, adjust the model or training process itself, or intervene after
+the model has been trained and the ranking scores are determined.
+PUFR is a post-processing approach that aims to mitigate bias
+(representational unfairness) as opposed to prior in-processing work
+on the same task [33, 53]. While other work on post-processing
+approaches [such as, e.g., 6, 48] intervene at the ranked output, our
+approach instead adjusts the score distribution. What distinguishes
+PUFR from prior work on fair ranking is that we aim to exploit the
+uncertainty that the ranking model has on the predicted relevance
+scores to increase the fairness of the rankings.
+2.3
+Uncertainty in fair ranking
+Prior work at the intersection of uncertainty and fairness can be
+grouped into two categories. The first category deals with uncer-
+tainty introduced when group membership cannot be determined
+with confidence. Ghosh et al. [17] discover that, when group labels
+are inferred from data, the usage of fair ranking methods can inval-
+idate fairness guarantees and even increase the disadvantage that
+protected groups might receive. Mehrotra and Vishnoi [28] follow
+up on this work and develop a fair ranking framework for cases
+where socially-salient group attributes cannot be determined with
+certainty but are assumed to follow a given probability distribution.
+The other category, which contains, among others, our work,
+considers the predictive uncertainty stemming from imperfect pre-
+diction of merits and ranking scores. Yang et al. [47] are concerned
+with uncertainty in the relevance estimation. Unlike our work, the
+authors study an online setting where the relevance estimation is
+constantly updated. We target a static setting, not aiming to reduce
+the uncertainty for some exploration strategy but to exploit the
+uncertainty to obtain a better trade-off between fairness and utility.
+Lastly, Singh et al. [41] are concerned with uncertainty in merit
+due to observations of secondary attributes instead of directly ob-
+serving the merit. The authors suggest a probabilistic fairness frame-
+work in the presence of such uncertainty. Their work defines a
+notion of fairness that takes the uncertainty in the merit prediction
+into account, while we exploit uncertainty to, for example, correct
+for historic biases in the data and ranking model.
+In summary, where existing methods either ignore the predictive
+uncertainty of ranking scores, aim to either reduce uncertainty, or
+take it into account when defining fairness, our work is the first to
+harness uncertainty to improve the fairness-utility trade-off.
+3
+METHOD
+We take an uncertainty-based approach to post hoc bias mitigation
+in ranking. We exploit the model’s uncertainty over the predicted
+ranking scores to manipulate the ranking in a way that benefits doc-
+uments that do not contain biases, which results in a fairer ranked
+list. By staying within a certain confidence range, we minimize the
+potential cost to utility. Following prior work [28, 33], we frame
+the task as a fair ranking problem.
+Our method operates entirely through principled machinery and
+allows us to trade-off between user utility and fairness by adjusting
+a single coefficient. Furthermore, an existing ranker can be used
+as-is, without the need to retrain it, making it possible to use and
+adjust it for various levels of fairness, with little additional costs.
+Below, in Section 3.1, we start by defining our notation and the
+fair ranking task. In Section 3.2, we introduce our method PUFR that,
+assuming that the predictive uncertainty over the ranking scores
+is given, uses those uncertainty values to develop a fair ranking
+approach. Finally, in Section 3.3 we follow with a description of how
+to attain the uncertainty of a given deterministic ranking model
+over its scores at inference time.
+3.1
+Notation and preliminaries
+Given a query 𝑞, we consider the task of ranking documents from
+a candidate set D𝑞= {𝑑𝑞,𝑖}𝑖w.r.t. their relevance, to 𝑞. Regarding
+measured user utility only, an ideal ranked list would be ordered
+by decreasing document relevance. We assume a ranking model
+has been trained to order the documents w.r.t. the relevance to the
+query by predicting relevance scores. Most rankers are determin-
+istic, outputting only a single predicted relevance score, 𝜇𝑞,𝑖. In
+Section 3.3 we will describe how to approximate the uncertainty of
+predicted scores for such a model. We write 𝜎𝑞,𝑖for the standard
+deviation of the predicted score 𝜇𝑞,𝑖for document 𝑑𝑞,𝑖. Note that
+we implicitly assume the score distribution to be Gaussian.
+Prior work has shown that models that are trained solely for
+maximizing the measured utility can be biased and contain unfair
+representations of the resulting ranked lists [34]. In this work, as
+an additional objective, we aim to decrease the presence of biased
+documents in the ranked lists. We treat the task as a fair ranking
+problem, where we want to increase the exposure of the protected
+group D𝑃𝑞⊂D𝑞of documents without biases and decrease the
+exposure of the non-protected group D𝑁
+𝑞⊂D𝑞of documents that
+contain biases.
+3.2
+PUFR: Uncertainty-aware fairness
+In this section, we introduce our post-processing fairness interven-
+tion method Predictive Uncertainty based Fair Ranking, PUFR. The
+core idea of PUFR is to take advantage of the uncertainty of the
+model over the predicted ranking scores to adjust these scores pro-
+portional to the standard deviation of the predictive distribution for
+each document, allowing fairness adjustments with minimal cost
+to the utility. For now, we treat the score distribution for each doc-
+ument, N (𝜇𝑞,𝑖, 𝜎2
+𝑞,𝑖), as being given, but in Section 3.3 we describe
+how to obtain it for a deterministic ranker.
+As the goal of PUFR is to mitigate bias and hence increase the
+fairness of the ranking system, PUFR accomplishes this by swap-
+ping some of the documents of the protected group, D𝑃𝑞, with
+
+CIKM ’23, October 21–25, 2023, Birmingham, United Kingdom
+Maria Heuss, Daniel Cohen, Masoud Mansoury, Maarten de Rijke, and Carsten Eickhoff
+higher ranked documents of the non-protected group, D𝑁
+𝑞. Since
+the uncertainty of the scores for the documents within the same
+group can differ greatly, this allows for a tuned adjustment of the
+ranking scores where swaps only occur in settings where there
+exists a reasonable chance of the documents being equally relevant,
+quantified by the model’s uncertainty, 𝜎𝑞,𝑖.
+In other words, we allow PUFR to pick ranking scores that max-
+imize fairness in intervals [𝜇𝑞,𝑖−𝛼· 𝜎𝑞,𝑖, 𝜇𝑞,𝑖+ 𝛼· 𝜎𝑞,𝑖], without
+re-ordering the documents within the same group. Here, 𝛼is a
+user defined hyper-parameter that quantifies the chance of a utility
+violation when performing this procedure. A higher value of 𝛼will
+result in a fairer ranking but at the cost of less accurate predicted
+scores, and hence potentially a drop in utility.
+As shown in Algorithm 1, PUFR initially loops over all documents
+of the protected group 𝑑𝑞,𝑖∈D𝑃𝑞, sorted w.r.t. decreasing ranking
+score, 𝜇𝑞,𝑖, see line 1. PUFR then increases the score as much as
+possible while staying within the confidence bounds, i.e.,
+˜𝜇𝑞,𝑖= 𝜇𝑞,𝑖+ 𝛼· 𝜎𝑞,𝑖.
+(1)
+See line 2. To avoid intra-group swapping of documents, modified
+ranking scores are bounded by the lowest score of any higher
+ranked document within the same group:
+˜𝜇𝑞,𝑖≤minD𝑃𝑞,𝑗≤𝑖( ˜𝜇𝑞,𝑗),
+(2)
+where 𝑗,𝑖are rank positions, see line 3. Equivalently, for all doc-
+uments of the non-protected group, 𝑑𝑞,𝑖∈D𝑁
+𝑞, we decrease the
+score as follows, this time starting with the document with the
+lowest ranking score (see line 5):
+˜𝜇𝑞,𝑖= 𝜇𝑞,𝑖−𝛼· 𝜎𝑞,𝑖,
+(3)
+see line 6. Again, to avoid the same intra-group swapping for the
+non-protected group, we lower bound the adjusted scores by the
+maximum score of all documents in the same group that are ranked
+lower in the original ranking:
+˜𝜇𝑞,𝑖≥maxD𝑁
+𝑞,𝑗≥𝑖( ˜𝜇𝑞,𝑗).
+(4)
+See line 7. PUFR then uses these adjusted scores ˜𝜇𝑞,𝑖to re-rank the
+documents (line 9).
+Note that even though we define PUFR for a setting with only
+one protected document group, it can be extended to several pro-
+tected groups, that need to receive different treatments. Our ap-
+proach allows us to adjust the strength of the score adjustment
+individually for each group, e.g., enabling a stronger correction for
+more disadvantaged groups, by allowing a group-wise choice of
+hyper-parameter 𝛼𝑔.
+Many pre-trained ranking models do not output the uncertainty
+scores 𝜎𝑞,𝑖that PUFR employs to reorder rankings. Thus we need a
+way to approximate the uncertainty scores 𝜎𝑞,𝑖in a post-processing
+manner. Next, we show how to do this with the help of Laplace
+approximation.
+3.3
+Attaining uncertainty scores from a
+deterministic ranking model
+The goal is to attain effective uncertainty scores, 𝜎, from a ranking
+model at inference time; conventional uncertainty approaches fail to
+satisfy this condition [9, 32, 46, 47]. Past approaches have relied on
+a specific training regime – Monte Carlo (MC) dropout – to achieve
+Algorithm 1 Predictive Uncertainty based Fair Ranking (PUFR)
+Require: mean ranking scores {𝜇𝑞,𝑖}𝑑𝑞,𝑖∈D𝑞, standard deviation
+{𝜎𝑞,𝑖}𝑑𝑞,𝑖∈D𝑞, control parameter 𝛼, groups D𝑃𝑞, D𝑁
+𝑞
+1: for all 𝑑𝑞,𝑖∈D𝑃𝑞, sorted by decreasing 𝜇𝑞,𝑖do
+2:
+˜𝜇𝑞,𝑖←𝜇𝑞,𝑖+ 𝛼· 𝜎𝑞,𝑖
+3:
+˜𝜇𝑞,𝑖←maxD𝑃𝑞,𝑗≤𝑖( ˜𝜇𝑞,𝑗)
+4: end for
+5: for all 𝑑𝑞,𝑖∈D𝑁
+𝑞, sorted by increasing 𝜇𝑞,𝑖do
+6:
+˜𝜇𝑞,𝑖←𝜇𝑞,𝑖−𝛼· 𝜎𝑞,𝑖
+7:
+˜𝜇𝑞,𝑖←minD𝑁
+𝑞,𝑗≥𝑖( ˜𝜇𝑞,𝑗)
+8: end for
+9: Obtain ranking 𝐿by sorting documents 𝑑𝑞,𝑖∈D𝑞with respect
+to scores ˜𝜇𝑞,𝑖
+10: return 𝐿
+an effective Bayesian model. As PUFR is a post hoc method, we
+leverage an alternative form of uncertainty, Laplace approximation,
+that can be applied to any already trained ranking model.
+The standard approach to training a deterministic model 𝑓,
+where there exists a single output for each input, is to learn a
+set of parameters, 𝜃MAP, that minimizes the loss function
+L(𝜃) = −ln 𝑃(𝜃| D) + 𝑟(𝜃),
+(5)
+where 𝑟is some regularization on 𝜃and D is the training dataset.
+While this is a probabilistic interpretation of the loss function and
+optimization process, prior work has mapped margin-based rank-
+ing losses to this framework [9]. At inference time, the model, 𝑓, is
+evaluated using the single point 𝜃MAP, which minimizes L(𝜃). Al-
+ternatively, a Bayesian perspective captures the uncertainty of the
+model by considering all possible 𝜃values weighed by how likely
+they are based on the training data using the posterior 𝑃(𝜃| D),
+with 𝜃MAP as the most likely value. This produces a distribution
+over outputs, of which the variance 𝜎2 represents the uncertainty
+present within the model and D:
+𝑃(𝑦| 𝑥, D) =
+∫
+𝜃
+𝑃(𝑦| 𝑥,𝜃)𝑃(𝜃| D)𝑑𝜃,
+(6)
+with 𝑥as the input and 𝑦as the output of the model. Unfortunately,
+capturing this distribution is intractable for all but the smallest
+models due to the nature of computing the posterior 𝑃(𝜃| D).
+There exists prior work that approximates this distribution using
+MC Dropout [9, 32, 46, 47]. However, this requires a specific training
+regime, which would prevent the general application of PUFR to
+off-the-shelf architectures or previously trained ranking models.
+Using Laplace approximation for post-hoc uncertainty ap-
+proximation. We propose using Laplace approximations (LA),
+which can turn any conventionally trained deterministic model
+into a Bayesian model at inference time to produce the necessary 𝜎
+values for PUFR [27]. LA encompass a family of approaches that fit
+a local Gaussian around the MAP estimate (5) via a second-order
+Taylor expansion of the log posterior:
+ln 𝑃(𝜃| D) ≈ln 𝑃(𝜃MAP | 𝜃)
+1
+2 (𝜃−𝜃MAP)⊺¯𝐻(𝜃−𝜃MAP),
+(7)
+where ¯𝐻is the expected Hessian at 𝜃MAP. The key observation
+is that the right side only requires the deterministic model, 𝜃MAP
+
+Predictive Uncertainty-based Bias Mitigation in Ranking
+CIKM ’23, October 21–25, 2023, Birmingham, United Kingdom
+Algorithm 2 Post hoc uncertainty estimation for single query
+Require: pre-trained 𝑙-layer model 𝑓𝜃, 𝜃MAP = [𝜃1
+MAP, . . . ,𝜃𝑙
+MAP],
+query 𝑞, candidate documents D𝑞= {𝑑𝑞,𝑖}𝑖, Monte Carlo sam-
+ple size 𝑁.
+1: for all 𝑑𝑞,𝑖∈D𝑞do
+2:
+ℎ𝑙−1
+𝑖
+,𝑦= 𝑓𝜃MAP (𝑞,𝑑𝑞,𝑖)
+3:
+𝐻≈diag(𝐹) = diag(E
+
+∇𝜃𝑙ln 𝑃(𝑦| 𝑞,𝑑𝑞,𝑖))2
+4:
+for all 𝑗∈𝑁do
+5:
+{𝜃}𝑗
+1 ∼N (𝜃𝑙MAP, diag𝐹−1)
+6:
+end for
+7:
+𝜇𝑞,𝑖= 1
+𝑁
+Í𝑁
+𝑡=1 𝑓𝜃𝑙
+𝑡(ℎ𝑙−1
+𝑖
+)
+8:
+𝜎2
+𝑞,𝑖= 1
+𝑁
+Í𝑁
+𝑡=1 𝑓𝜃𝑙
+𝑡(ℎ𝑙−1
+𝑖
+)2 −
+
+1
+𝑁
+Í𝑁
+𝑡=1 𝑓𝜃𝑙
+𝑡(ℎ𝑙−1
+𝑖
+)
+2
+9: end for
+10: return 𝜇𝑞,𝑖, 𝜎𝑞,𝑖∀𝑑𝑞,𝑖∈D𝑞
+to produce the log Bayesian posterior distribution on the left side.
+Then, to recover the full posterior, exponentiating both sides reveals
+the Gaussian functional form for 𝜃,
+𝑃(𝜃| D) ≈𝑃(𝜃MAP | D)−
+exp
+ 1
+2 (𝜃−𝜃MAP)⊺¯𝐻(𝜃−𝜃MAP)
+
+≈N (𝜃MAP, ¯𝐻−1).
+(8)
+Thus, this approximation can take any twice differentiable off-the-
+shelf model and conveniently convert it to a Bayesian model at
+inference time by inverting the Hessian. While inverting to produce
+the covariance matrix is intractable for most models, we leverage
+past work by only inverting the last layers of a neural model to
+achieve actionable uncertainty estimates with near-zero cost [8, 9]
+(Algorithm 2, lines 2–3). While there exists a closed form lineariza-
+tion of Eq. 8, we are able to achieve sufficient efficiency using Monte
+Carlo sampling to capture the predictive distribution 𝑃(𝑦| 𝑥, 𝑓) by
+sampling from the Gaussian (line 5), N (𝜃MAP, ¯𝐻−1) [10],
+𝑃(𝑦| 𝑥, D) =
+∫
+𝜃
+𝑃(𝑦| 𝑥,𝜃)𝑃(𝜃| D)𝑑𝜃
+≈1
+𝑁
+𝑁
+∑︁
+𝑡=1
+𝑝(𝑦| 𝑥,𝜃𝑡),𝜃𝑡∼N (𝜃MAP, ¯𝐻−1).
+(9)
+Furthermore, as the covariance matrix 𝐻−1 is viewed as indepen-
+dent to the training process, we do not need to use the original
+loss function either [23]. Lastly, for further efficiency, we exploit
+the property that the Hessian, 𝐻, is equivalent to the Fisher infor-
+mation matrix, 𝐹, at 𝜃MAP. As shown in Algorithm 2, we therefore
+approximate 𝐻by taking the diagonal of 𝐹, which is a common
+approximation regime (line 3) [18, 35].
+After estimating N (𝜃MAP, ¯𝐻−1) for the last layer of a neural
+model, we sample this distribution 𝑁times to produce 𝑁versions
+of the last layer, in order to produce 𝜇𝑞,· and 𝜎2𝑞,· as parameters of
+the predictive distribution 𝑃(𝑦| 𝑥, D) = N (𝜇𝑞,·, 𝜎2𝑞,·) (line 7–8).
+These parameters are then used by PUFR as described in Section 3.2
+to debias the ranked list.
+4
+EXPERIMENTAL SETUP
+We aim to answer the following research questions with our ex-
+periments: (RQ1) Based on empirical findings, are the uncertainty
+intervals around the ranking scores of a Bayesian ranking model suf-
+ficiently intersecting to allow for a re-ranking of documents, while
+staying within reasonable certainty bounds? (RQ2) Can PUFR be
+used to reduce the number of biased documents that are ranked
+on top of the list more effectively than prior methods? (RQ3) How
+do the various methods for fairness interventions compare with
+respect to controllability and computational efficiency?
+There are four properties that we consider relevant to answer
+these questions: (i) We want to improve the fairness within the
+rankings. (ii) We want to do so with the least loss in utility possible.
+(iii) The next property is the controllability of the approach at
+hand. A human user/engineer should be able to easily adjust the
+trade-off between fairness and utility to fit their purposes. (iv) The
+last property is computational efficiency since this can also play a
+role when choosing a fairness method.
+Next, we detail our experimental design. Then we discuss the
+evaluation metrics that we use to measure the four properties men-
+tioned above (Section 4.2) and the dataset that we use (Section 4.3).
+Section 4.4 summarizes the baselines that we compare against.
+4.1
+Experimental design
+We perform our experiments on a web search task, where for each
+query, the objective is to rank documents that might be relevant
+to that query. In addition to the requirement of being relevant
+to the user, the ranked list should not contain any gender biases
+for queries that are naturally non-gendered [33]. Therefore, we
+consider only non-gendered queries and expect a fair ranking model
+to not promote any documents that are biased towards some gender.
+See Section 4.3 for a discussion on the data used for this task.
+To get an effective impression of the trade-off between utility
+and fairness, we perform a range of experiments per baseline, by
+varying some hyperparameter 𝛼. We define this hyperparameter
+individually for each baseline, based on the respective underlying
+algorithms (see Section 4.4).
+To demonstrate the efficacy of PUFR on current search models,
+we use the BERT ranker introduced by Nogueira and Cho [30] as it
+represents a common language model architecture in current rank-
+ing regimes [12, 20, 26, 37]. Due to hardware constraints, we use
+Bert-Mini [43], a distilled four-layer version of BERT that performs
+comparably to the full model in search and other related tasks.
+We note that in the case of uncertainty modeling, Cohen et al. [9]
+demonstrate that a distilled model results in less expressive ranking
+uncertainty compared to larger variants of the same architecture
+on the same data. Thus, Bert-Mini represents a challenging setting
+and a conservative estimate of PUFR’s performance.
+To facilitate reproducibility of our work, all code and parameters
+are made available; see Section 7.
+4.2
+Evaluation
+User utility and fairness are measured per query. To get a single
+score to compare across methods, we report the mean over all
+queries. We measure significance with paired t-tests, where we
+treat the results of each query as one sample.
+
+CIKM ’23, October 21–25, 2023, Birmingham, United Kingdom
+Maria Heuss, Daniel Cohen, Masoud Mansoury, Maarten de Rijke, and Carsten Eickhoff
+User utility. To measure user utility, we use the nDCG metric
+(normalized discounted cumulative gain). We use different cut-offs
+to measure the user utility in the top-10 documents, as well as for
+the first 100 documents.
+Fairness. As discussed in Section 4.1, our task entails reducing
+the impact of strongly biased documents in the presented rankings.
+Therefore, we use the nFaiRR metric as a measure of fairness intro-
+duced by Rekabsaz et al. [33]. For a ranked list 𝐿, the FaiRR score
+at cut-off 𝑘is defined as:
+FaiRR@k(𝐿) =
+∑︁
+rank𝐿(𝑑𝑖)≤𝑘
+𝑛𝑑𝑖·
+1
+rank𝐿(𝑑𝑖) ,
+(10)
+where rank𝐿(𝑑𝑖) describes the rank of candidate document 𝑑𝑖in
+𝐿, and the neutrality score 𝑛𝑑𝑖∈[0, 1] is lower, the more biased a
+document is. Since the possible range of FaiRR scores depends on
+the distribution of neutrality scores of its candidate documents, to
+make the results easier to interpret and better comparable among
+queries, we use the normalized FaiRR score (nFaiRR). For this, we
+normalize the FaiRR score with the highest attainable FaiRR score
+with the document candidates for this query, similar to how nDCG
+is calculated from DCG. In our experiments we measure the nFaiRR
+at a cut-off value of 10 and 50. We select a different cut-off than the
+utility measure (@100) so as to compare with reported values from
+the baseline evaluations.
+Controllability. We follow prior work [33], and focus on a quali-
+tative analysis of the results by investigating the predictability of
+the utility-fairness trade-off when adjusting the controllable hyper-
+parameter of each of the methods. An ideal approach should have
+small change in utility and fairness for a small change in 𝛼. To this
+end, we compare the plots in Fig. 6 below.
+Computational efficiency. For computational efficiency, we mea-
+sure the run time of our implementation for each approach. We
+acknowledge that method-specific performance optimization might
+be able to further improve on the run times observed for the generic
+implementations used here, but assume that at least a rough execu-
+tion time comparison can be gleaned. We measure the run time of
+each query and report the mean run time in Table 1.
+Significance testing. To test the significance of observed differ-
+ences in evaluation scores, we perform two-tailed paired t-tests on
+the metrics, treating the results of an approach of each query as
+a measurement of the same random variable. In Table 1, we mark
+results with an asterisk if they are significantly different from those
+of PUFR.
+4.3
+Dataset
+The retrieval models that we use are trained on the MS MARCO Pas-
+sage Retrieval collection [29]. For evaluation, we use MS MARCOFair,
+a subset consisting of 215 queries from the validation set that are
+non-gendered in nature – i.e., not containing any words or con-
+cepts that could be attributed to some gender [33]. However, the
+top candidate documents for these queries are highly associated
+with gender [33, 53]. We quantify the degree of gender bias for each
+document using the neutrality scores provided by Rekabsaz and
+Schedl [34] in order to measure fairness. We define documents with
+neutrality score 1 as the protected group for the post-processing
+baselines and PUFR.
+4.4
+Baselines
+The baseline fairness intervention methods that we consider include
+the two in-processing approaches that have been introduced for the
+same bias mitigation task and dataset used here [33, 53]. Since PUFR
+is a post-processing approach, we add two commonly used post-
+processing fairness approaches that have been slightly adjusted
+to fit the task. Both post-processing baselines as well as UNFAIR
+use the mean scores 𝜇𝑞,𝑖, produced by Algorithm 2 in Section 3.3
+for the BERT-based ranker (see Section 4.1) as ranking scores. For
+each baseline the hyper-parameter 𝛼that allows us to control the
+trade-off between utility and fairness, is defined individually.
+UNFAIR. The ranking resulting from ordering the documents with
+respect to the mean scores 𝜇𝑞,𝑖, without considering fairness.
+ADV. The (in-processing) adversarial fairness optimization from [33],
+which shares the same underlying BERT re-ranking architecture
+as discussed in Section 4.1. However, training is done using an
+adversarial discriminator head that attempts to predict whether the
+document is gendered or neutral by optimizing a classification loss
+function. The gradient from this loss is reversed within the main
+BERT architecture, therefore moving the parameters away from
+regions that can effectively capture gender [15]. We implement this
+model using the source code and suggested hyperparameters pro-
+vided by the authors. The controlling hyperparameter 𝛼(originally
+𝜆) is defined by the scale of the reversed gradient.
+CODER. This (in-processing) baseline [53] is intended for dense
+retrieval architectures. The method directly optimizes the query
+representation from a previously trained architecture, TAS-B [20],
+by jointly optimizing thousands of candidate documents in a list-
+wise manner. While improving overall ranking performance, the
+large candidate pool within a list-wise loss provides a stable and
+competitive way to incorporate fairness directly during training.
+We include this baseline not as a direct comparison with respect
+to ranking performance, but to provide context on how a direct
+list-based fairness optimization approach compares to methods that
+operate entirely within a post hoc framework when viewed from a
+utility-fairness trade-off perspective. Here, the hyperparameter 𝛼
+(in the original paper 𝜆𝑟) is defined as the regularization coefficient
+for the neutrality loss.
+CVXOPT. A (post-processing) convex optimization approach sim-
+ilar to [6]. For each query we optimize the ranking 𝐿for util-
+ity, measured by nDCG, under a constraint on the nFaiRR score,
+nFaiRR(𝐿) ≥𝛼. To keep computational costs within a reasonable
+range, we only re-rank the first 50 documents of each query.
+FA*IR. A (post-processing) approach suggested in [48]. We use
+a significance parameter 0.1 as suggested in [48] and vary 𝑝, the
+desired minimal proportions of documents with the protected at-
+tribute in the top-𝑘for any value of 𝑘. In the remainder of this
+paper we use 𝛼:= 𝑝, not to be confused with the significance pa-
+rameter in the original paper, to match the other methods. For a fair
+comparison w.r.t. to computational efficiency, we use an efficient im-
+plementation that pre-computes the required number of protected
+documents for each rank upfront via an iterative algorithm.
+5
+EXPERIMENTAL RESULTS
+We present and discuss answers to our research questions.
+
+Predictive Uncertainty-based Bias Mitigation in Ranking
+CIKM ’23, October 21–25, 2023, Birmingham, United Kingdom
+0
+20
+40
+5
+10
+rank
+#Documents to swap
+0
+20
+40
+5
+10
+15
+20
+rank
+Figure 2: MSMARCOFAIR: Median number of documents that
+have intersecting uncertainty intervals with the document
+placed at each rank for uncertainty intervals of 1 (left) resp.
+2 (right) standard deviations.
+5.1
+Intersections of uncertainty intervals
+Recall (RQ1): Based on empirical findings, are the uncertainty in-
+tervals around the ranking scores of a Bayesian ranking model suf-
+ficiently intersecting to allow for a re-ranking of documents, while
+staying within reasonable certainty bounds? To answer (RQ1), we
+analyze the confidence intervals of the ranking scores. If the uncer-
+tainty intervals do not intersect much, the ranking model is very
+certain about the ordering of its ranking scores. In such a case, our
+approach, or any uncertainty-aware approach in general, would
+not be able to re-rank the documents within an acceptable utility
+bracket. Previous work has shown that ranking models tend to be
+very certain for the ranking scores of highly ranked documents [9],
+but certainty decays when going down the ranked list. We are in-
+terested in how much flexibility a rank-aware fairness approach
+would offer in swapping documents by allowing the ranking scores
+to take values in a given certainty [𝜇𝑞,𝑖−𝛼· 𝜎𝑞,𝑖, 𝜇𝑞,𝑖+ 𝛼· 𝜎𝑞,𝑖]
+interval around the mean score value 𝜇𝑞,𝑖. Fig. 2 shows the median
+number of documents with intersecting confidence intervals (i.e.
+the median number of documents that the document at that rank
+could swap position with) for 𝛼= 1 resp. 𝛼= 2 standard deviations.
+Even for documents ranked at higher positions, there is flexibility
+to change the order of the ranking. For a confidence interval of
+1 standard deviation, most documents in the top-10 each have
+at least 6 documents that they could swap rank with. If we look
+at confidence intervals of two standard deviations, this number
+increases to ∼10 documents that the document at rank 10 can swap
+place with. We therefore answer (RQ1) positively: The uncertainty
+intervals around the ranking scores of the Bayesian ranking model
+are sufficiently intersecting to allow for a re-ranking of documents,
+while staying within acceptable certainty bounds for utility.
+Having confirmed that within the uncertainty of the model there
+is flexibility for an uncertainty-based fairness approach to change
+the order of documents, we address our second research question
+that asks whether the proposed approach can improve fairness.
+5.2
+The fairness utility trade-off
+Recall (RQ2): Can PUFR be used to reduce the number of biased
+documents that are ranked on top of the list more effectively than
+prior methods? To answer this question we refer to Fig. 3 and 4,
+where we plot fairness on the x-axis against utility on the y-axis,
+for PUFR and the baselines discussed in Section 4.4, for different
+values of the respective hyper-parameter 𝛼that controls the trade-
+off. In addition we use Table 1, where we compare the experimental
+0.8
+0.85
+0.9
+0.95
+1
+0.2
+0.22
+0.24
+0.26
+nFaiRR@10
+nDCG@10
+PUFR
+ADV
+CODER
+CVXOPT
+FA*IR
+Figure 3: Trade-off between fairness and utility evaluated on
+the first 10 documents.
+0.85
+0.9
+0.95
+0.26
+0.28
+0.3
+0.32
+nFaiRR@50
+nDCG@100
+PUFR
+ADV
+CODER
+CVXOPT
+FA*IR
+Figure 4: Trade-off between fairness and utility evaluated on
+the first 50 resp. 100 documents.
+outcomes with the best nFaiRR value for a given minimum utility
+requirement.
+Utility-fairness trade-off. In Fig. 3 and 4, we observe that the
+CODER baseline starts with a better trade-off for the top-10 docu-
+ments, which can be attributed to better ranking scores that it starts
+out with (PUFR uses a BERT-based model to obtain ranking scores).
+CODER’s advantage quickly vanishes as the balancing parameter 𝛼
+increases for more weight on fairness. Overall, PUFR offers a better
+trade-off between fairness and utility than the CODER based and
+the adversarial fairness optimization baseline (ADV).
+If we compare PUFR to the post-processing baselines (CVXOPT
+and FA*IR), it clearly outperforms those baselines. Once a nFaiRR
+value of 0.96 is reached the advantage of PUFR over these baselines
+becomes smaller. For a possible explanation see Section 6.
+Overall, PUFR outperforms all baselines for a large range of
+nFaiRR values, which we also highlight by comparing the fairness of
+the different approaches at two different utility levels (nDCG@100 =
+0.31 and nDCG@100 = 0.30) in Table 1. We chose these levels of
+utility, assuming that, when taking a fair ranking approach in pro-
+duction there might be a certain (small) allowance for a drop in
+utility given, within which the best possible fairness value should
+be reached. We see that for these levels PUFR reaches significantly
+higher scores for nFaiRR than all baselines.
+Ablation study. To ensure that the uncertainty estimates indeed
+do contribute to the success of PUFR, we conduct an ablation study.
+We compare PUFR with a similar approach that, instead of adjusting
+the scores relative to the standard deviation, in- or decreases all
+
+CIKM ’23, October 21–25, 2023, Birmingham, United Kingdom
+Maria Heuss, Daniel Cohen, Masoud Mansoury, Maarten de Rijke, and Carsten Eickhoff
+Table 1: Results for experiment with best nFairr value for
+nDCG decrease not more than 0.01 and 0.02 respectively.
+ADV baseline does not fulfill the criteria of being at most
+0.01 nDCG points worse than UNFAIR. * denotes significance
+w.r.t. PUFR via two tailed paired students t-test of 𝑝< .05.
+nDCG↑
+nFaiRR↑
+re-rank-
+req.
+Method
+𝛼
+@10 @100
+@10
+@50
+time(s)↓train
+UNFAIR
+0.0
+0.26
+0.32
+0.858
+0.873
+0.00
+No
+ADV
+2.0
+0.21
+0.26
+0.91
+0.896
+-
+Yes
+𝑛𝐷𝐶𝐺100 ≥0.31
+PUFR
+2.5
+0.25
+0.31
+0.938 0.932
+0.014
+No
+CODER
+3.0
+0.25
+0.31
+0.920* 0.920*
+-
+Yes
+CVXOPT
+0.8
+0.25
+0.31
+0.906* 0.905*
+0.123
+No
+FA*IR
+0.7
+0.25
+0.31
+0.898* 0.901*
+0.058
+No
+𝑛𝐷𝐶𝐺100 ≥0.30
+PUFR
+7.0
+0.23
+0.30
+0.970 0.960
+0.014
+No
+CODER
+4.0
+0.24
+0.30
+0.927* 0.926*
+-
+Yes
+CVXOPT 0.91 0.23
+0.30
+0.949* 0.931*
+0.123
+No
+FA*IR
+0.85 0.23
+0.30
+0.944* 0.935*
+0.058
+No
+scores by the same, constant value. In our experiments we use the
+mean uncertainty score over all queries and candidates documents,
+𝜎mean = mean𝑞,𝑖(𝜎𝑞,𝑖). The results of this ablation study are pre-
+sented in Fig. 5. We see that by using the uncertainty scores instead
+of a uniform correction factor, we gain a better trade-off. For the
+top-10, these improvements are less visible (see Fig. 5 (a)). When
+considering the top-100 documents instead, the advantages of using
+uncertainty become much clearer (see Fig. 5 (b)). This might be
+due to fact that, as also noted by Cohen et al. [9], for the top-10
+documents the uncertainty scores tend to be fairly similar to each
+other, making our approach, if we only look at a small window,
+seem similar to the ablation study approach. When we look at a
+larger window, the uncertainty scores deviate more, emphasizing
+the advantages of PUFR.
+We conclude this section and answer (RQ2) in the affirmative.
+PUFR performs competitively with baselines. In terms of fairness-
+utility trade-offs it significantly outperforms other post-processing
+schemes, and clearly beats the two state-of-the-art in-processing
+baselines. The ablation study confirms that this result is at least par-
+tially due to the use of the model’s uncertainty in its scores. Hence,
+PUFR can be used to reduce the number of biased documents that
+are ranked on top of the list more effectively than prior methods.
+Since a good utility-fairness trade-off is not the only relevant
+criterion when choosing a fair ranking method, our next research
+question (RQ3) concerns the degree of controllability and computa-
+tional costs of the different methods.
+5.3
+Controllability and computational efficiency
+Next, we address (RQ3): How do the various methods compare with
+respect to controllability and computational efficiency? As discussed
+in Section 4.2, we focus on a qualitative analysis of the 𝛼-fairness
+and 𝛼-utility curves, evaluating how predictable and hence con-
+trollable the utility-fairness trade-off is. Fig. 6 shows that for PUFR
+the nFaiRR score monotonically increases with increasing 𝛼. At the
+same time, utility, measured by nDCG, decreases. Both curves are
+highly predictable. Furthermore, since re-ranking is computation-
+ally very efficient, a broad range of rankings with different trade-offs
+0.85
+0.9
+0.95
+1
+0.22
+0.24
+0.26
+nFaiRR@10
+nDCG@10
+PUFR
+Ablation
+0.9
+0.95
+0.3
+0.31
+0.32
+nFaiRR@100
+nDCG@100
+PUFR
+Ablation
+Figure 5: Ablation study comparing PUFR (score adjustment
+proportional to the ranker’s uncertainty) with an ablation
+experiment with uniform score adjustment.
+can be explored to find the right choice of hyper-parameter for the
+desired trade-off between nFaiRR and nDCG. The CODER-based
+approach has similarly predictable trade-off curves as PUFR [53].
+However, CODER is an in-processing approach, meaning that the
+model needs to be re-trained for each choice of hyper-parameter
+𝛼, making it much less controllable in practice. The ADV method
+on the other hand, seems to be highly unpredictable, on top of
+the downsides that come with in-processing methods as discussed
+above. For the FA*IR baseline, although its curve seems to be fairly
+well controllable, the granularity in which we can produce results
+is much coarser. Due to space constraints we omit the figure for the
+convex optimization approach; because of computational efficiency,
+FA*IR or PUFR should be preferred over it.
+With regard to computational efficiency, we recall that both in-
+processing approaches, ADV and CODER, once trained, do not have
+the post-processing overhead of the other methods. However, these
+methods need a large amount of training to gain a reasonable level
+of performance [33, 53]. Looking at Table 1, re-ranking with PUFR
+is much faster than with the other two post-processing approaches.
+Obtaining uncertainty labels can be done within microseconds.
+After adjusting the ranking scores there is a single re-sorting of
+the documents that dominates the execution time. Hence, when
+using PUFR in production and adjusting the score before the initial
+ordering of the documents, the execution of PUFR is nearly free.
+6
+DISCUSSION
+Exploiting model uncertainty for the fairness-utility trade-
+off. To increase the fairness of a ranking, we would commonly
+need to trade-off some predicted utility.Encouraging this trade-off
+to take place when the ranking model is less certain about the
+ranking scores will cause roughly equivalently relevant documents
+that the model cannot confidently rank, to swap place. Assuming
+that the ranking model is well calibrated, this might be the reason
+for the overall better trade-off that PUFR achieves, compared to
+models that do not consider predictive uncertainty. This quality is
+highlighted in Fig. 7, where we show the score distribution of the
+top-5 documents of two queries in the MSMARCOFair dataset. In
+the case of Fig. 7a and 7b, the larger variance leads to overlapping
+score distribution, allowing PUFR to swap documents in the re-
+ranked list. On the other hand, Fig. 7c and 7d show a query where
+the model is very certain about the order of the documents. PUFR
+hence does not change the order of the documents, whereas FA*IR
+and CVXOPT both do adjust the ranking, leading to decreased user
+utility for those baselines.
+
+Predictive Uncertainty-based Bias Mitigation in Ranking
+CIKM ’23, October 21–25, 2023, Birmingham, United Kingdom
+0
+5
+10
+alpha
+0
+5
+10
+0.15
+0.2
+0.25
+nDCG@10
+PUFR
+0
+2
+4
+alpha
+0
+2
+4
+ADV
+0
+10
+20
+alpha
+0
+10
+20
+CODER
+0.5
+1
+0.8
+0.9
+1
+alpha
+nFaiRR@10
+0.5
+1
+FA*IR
+Figure 6: Controllability of different approaches visualized by plotting utility and fairness against the controlling hyper-
+parameter 𝛼on the x-axis (see Section 4.4 for a description of 𝛼for each approach).
+(a) query 1032855 before PUFR
+(b) query 1032855 after PUFR
+(c) query 1089383 before PUFR
+(d) query 1089383 after PUFR
+Figure 7: Examples of score distributions for the top-5 doc-
+uments for two queries of the MS MARCOFair dataset. Pro-
+tected documents in green, non-protected in red. Subfigs. 7a
+and 7c show the ranking score before PUFR adjusts the
+scores, 7b and 7d show them after. Query 1089383 was scaled
+before plotting.
+Using PUFR outside the models confidence. Our empirical
+results show that if we allow PUFR to adjust the scores too far
+outside of its confidence, its performance starts to decay (see Fig. 3).
+If 𝛼is too high, the natural interpretation of adjusting the scores
+within plausible error-bounds gets lost and we cannot exploit the
+models knowledge of its own certainty any further. Without the
+certainty to back it up, PUFR becomes more arbitrary in its decisions
+where to trade-off predicted utility with fairness. Hence, PUFR is
+most effective for small values of 𝛼, roughly up to 𝛼= 4 (see Fig. 6).
+This observation means that a purely uncertainty-based fairness
+method might not be the best choice when the bias we want to
+correct for is too strong. In such cases, it might be beneficial to use
+uncertainty in combination with another approach that has proven
+effective for the task at hand.
+7
+CONCLUSION
+We have introduced the notion of predictive uncertainty-based
+ranking fairness, aiming to exploit a ranking model’s uncertainty
+as an indicator of which documents we should focus on when
+re-ordering for a fairer ranking which de-emphasizes documents
+containing biases. Through our empirical analysis we have found
+that the uncertainty intervals of the ranking scores are sufficiently
+intersecting to allow us to swap the position of some documents.
+We have also introduced an intuitive and principled post-processing
+method, PUFR, that adjusts the predicted ranking scores within
+some desired confidence bound. We have shown that by considering
+uncertainty, PUFR can achieve the best utility-fairness trade-off
+and has superior time complexity and good controllability.
+We hope that our contribution makes the adoption of methods
+to remove bias in ranked results more attractive to practitioners
+working on real- world search and recommendation systems.
+More experimentation is needed to confirm our findings in more
+settings. We see limitations of our approach as twofold. Firstly,
+PUFR allows a re-ordering of the documents only within the un-
+certainty of the model. This might make our method less effective
+in reducing unfairness when the model is very skewed towards
+documents containing biases. As a second limitation, we rely on
+uncertainty scores containing accurate information on which doc-
+uments are more likely to be in the wrong order. Furthermore, the
+uncertainty intervals around the scores need to intersect sufficiently.
+In our experiments, we are using a neural ranking model on text
+data, which is a task that inherently carries a fair amount of uncer-
+tainty. For other tasks and fairness definitions, more research will
+be necessary to evaluate whether an uncertainty-based approach
+can be beneficial for the utility-fairness trade-off.
+As to future work, an important next step would be to define
+ways to evaluate uncertainty scores in a listwise manner for ranking
+models. Without proper evaluation of the predictive uncertainty,
+we are unable to put trust on the score distribution and hence on
+an uncertainty-based fairness approach. Moreover, more work is
+needed to investigate whether PUFR could be extended to, for ex-
+ample, Bayesian learning-to-rank models or recommender systems.
+Finally, we see a clear need to create more datasets for large lan-
+guage models with fairness labels, on which methods such as ours
+can be tested.
+Data and code. To facilitate reproducibility of our work, all code
+and parameters are shared at https://github.com/MariaHeuss/2023-
+CIKM-uncertainty-based-bias-mitigation.
+ACKNOWLEDGMENTS
+The research was partially funded by the Hybrid Intelligence Cen-
+ter, a 10-year program funded by the Dutch Ministry of Education,
+Culture and Science through the Netherlands Organisation for Sci-
+entific Research, https://hybrid-intelligence-centre.nl, and project
+LESSEN with project number NWA.1389.20.183 of the research pro-
+gram NWA ORC 2020/21, which is (partly) financed by the Dutch
+Research Council (NWO). All content represents the opinion of
+the authors, which is not necessarily shared or endorsed by their
+respective employers and/or sponsors.
+
+CIKM ’23, October 21–25, 2023, Birmingham, United Kingdom
+Maria Heuss, Daniel Cohen, Masoud Mansoury, Maarten de Rijke, and Carsten Eickhoff
+REFERENCES
+[1] Julia Angwin, Jeff Larson, Surya Mattu, and Lauren Kirchner. 2016. Machine Bias.
+In Ethics of Data and Analytics. Auerbach Publications, 254–264.
+[2] Alex Beutel, Jilin Chen, Tulsee Doshi, Hai Qian, Li Wei, Yi Wu, Lukasz Heldt,
+Zhe Zhao, Lichan Hong, Ed H. Chi, and Cristos Goodrow. 2019. Fairness in
+Recommendation Ranking through Pairwise Comparisons. In Proceedings of
+the 25th ACM SIGKDD International Conference on Knowledge Discovery & Data
+Mining. ACM, 2212–2220.
+[3] Asia J. Biega, Krishna P. Gummadi, and Gerhard Weikum. 2018.
+Equity of
+Attention: Amortizing Individual Fairness in Rankings. In Proceedings of the 41st
+International ACM SIGIR Conference on Research and Development in Information
+Retrieval. 405–414.
+[4] Carlos Castillo. 2019. Fairness and Transparency in Ranking. In ACM SIGIR
+Forum, Vol. 52. 64–71.
+[5] L. Elisa Celis, Anay Mehrotra, and Nisheeth K. Vishnoi. 2020. Interventions for
+Ranking in the Presence of Implicit bias. In Proceedings of the 2020 Conference on
+Fairness, Accountability, and Transparency. 369–380.
+[6] L. Elisa Celis, Damian Straszak, and Nisheeth K. Vishnoi. 2018. Ranking with
+Fairness Constraints. In 45th International Colloquium on Automata, Languages,
+and Programming (ICALP 2018). 28:1–28:15.
+[7] Le Chen, Ruijun Ma, Anikó Hannák, and Christo Wilson. 2018. Investigating the
+Impact of Gender on Rank in Resume Search Engines. ACM, 1–14.
+[8] Daniel Cohen, Kevin Du, Bhaskar Mitra, Laura Mercurio, Navid Rekabsaz, and
+Carsten Eickhoff. 2022. Inconsistent Ranking Assumptions in Medical Search and
+Their Downstream Consequences. In Proceedings of the 45th International ACM
+SIGIR Conference on Research and Development in Information Retrieval (Madrid,
+Spain). ACM, 2572–2577.
+[9] Daniel Cohen, Bhaskar Mitra, Oleg Lesota, Navid Rekabsaz, and Carsten Eickhoff.
+2021. Not All Relevance Scores Are Equal: Efficient Uncertainty and Calibration
+Modeling for Deep Retrieval Models. In Proceedings of the 44th International ACM
+SIGIR Conference on Research and Development in Information Retrieval. 654–664.
+[10] Zhijie Deng, Feng Zhou, and Jun Zhu. 2022. Accelerated Linearized Laplace
+Approximation for Bayesian Deep Learning. In Advances in Neural Informa-
+tion Processing Systems, Alice H. Oh, Alekh Agarwal, Danielle Belgrave, and
+Kyunghyun Cho (Eds.), Vol. 35. 2695–2708.
+[11] Fernando Diaz, Bhaskar Mitra, Michael D. Ekstrand, Asia J. Biega, and Ben
+Carterette. 2020. Evaluating Stochastic Rankings with Expected Exposure. In
+Proceedings of the 29th ACM International Conference on Information & Knowledge
+Management. 275–284.
+[12] Qian Dong, Yiding Liu, Suqi Cheng, Shuaiqiang Wang, Zhicong Cheng, Shuzi Niu,
+and Dawei Yin. 2022. Incorporating Explicit Knowledge in Pre-Trained Language
+Models for Passage Re-Ranking. In Proceedings of the 45th International ACM
+SIGIR Conference on Research and Development in Information Retrieval. ACM,
+1490–1501.
+[13] Michael D. Ekstrand, Graham McDonald, Amifa Raj, and Isaac Johnson. 2022.
+Overview of the TREC 2021 Fair Ranking Track. In The Thirtieth Text REtrieval
+Conference (TREC 2021) Proceedings.
+[14] Alessandro Fabris, Alberto Purpura, Gianmaria Silvello, and Gian Antonio Susto.
+2020. Gender Stereotype Reinforcement: Measuring the Gender Bias Conveyed
+by Ranking Algorithms. Information Processing & Management 57 (2020), 102377.
+[15] Yaroslav Ganin and Victor S. Lempitsky. 2015. Unsupervised Domain Adapta-
+tion by Backpropagation. In Proceedings of the 32nd International Conference on
+Machine Learning, ICML 2015, Lille, France, 6-11 July 2015 (JMLR Workshop and
+Conference Proceedings), Vol. 37. 1180–1189.
+[16] Sahin Cem Geyik, Stuart Ambler, and Krishnaram Kenthapadi. 2019. Fairness-
+aware Ranking in Search & Recommendation Systems with Application to
+Linkedin Talent Search. In Proceedings of the 25th ACM SIGKDD International
+Conference on Knowledge Discovery & Data Mining. 2221–2231.
+[17] Avijit Ghosh, Ritam Dutt, and Christo Wilson. 2021. When Fair Ranking Meets
+Uncertain Inference. In Proceedings of the 44th International ACM SIGIR Conference
+on Research and Development in Information Retrieval. 1033–1043.
+[18] Sruthi Gorantla, Amit Deshpande, and Anand Louis. 2021. On the Problem of
+Underranking in Group-Fair Ranking. In International Conference on Machine
+Learning. PMLR, 3777–3787.
+[19] Maria Heuss, Fatemeh Sarvi, and Maarten de Rijke. 2022. Fairness of Exposure in
+Light of Incomplete Exposure Estimation. In SIGIR 2022: 45th international ACM
+SIGIR Conference on Research and Development in Information Retrieval. ACM,
+759–769.
+[20] Sebastian Hofstätter, Sheng-Chieh Lin, Jheng-Hong Yang, Jimmy Lin, and Allan
+Hanbury. 2021. Efficiently Teaching an Effective Dense Retriever with Balanced
+Topic Aware Sampling. In Proceedings of the 44th International ACM SIGIR Con-
+ference on Research and Development in Information Retrieval. ACM, 113–122.
+[21] Jon Kleinberg and Manish Raghavan. 2018. Selection Problems in the Presence
+of Implicit Bias. In 9th Innovations in Theoretical Computer Science Conference
+(ITCS 2018). Schloss Dagstuhl–Leibniz-Zentrum fuer Informatik, 33:1–33:17.
+[22] Till Kletti, Jean-Michel Renders, and Patrick Loiseau. 2022. Pareto-Optimal
+Fairness-Utility Amortizations in Rankings with a DBN Exposure Model. In
+Proceedings of the 45th International ACM SIGIR Conference on Research and
+Development in Information Retrieval. 748–758.
+[23] Agustinus Kristiadi, Matthias Hein, and Philipp Hennig. 2020. Being Bayesian,
+Even Just a Bit, Fixes Overconfidence in ReLU Networks. In Proceedings of the
+37th International Conference on Machine Learning. 5392–5402.
+[24] Preethi Lahoti, Krishna P. Gummadi, and Gerhard Weikum. 2019. iFair: Learning
+Individually Fair Data Representations for Algorithmic Decision Making. In 2019
+IEEE 35th International Conference on Data Engineering (ICDE). IEEE, 1334–1345.
+[25] Preethi Lahoti, Krishna P. Gummadi, and Gerhard Weikum. 2019. Operationaliz-
+ing Individual Fairness with Pairwise Fair Representations. Proceedings of the
+VLDB Endowment (2019), 506–518.
+[26] Jimmy Lin, Rodrigo Nogueira, and Andrew Yates. 2021. Pretrained Transformers
+for Text Ranking: BERT and Beyond. Synthesis Lectures on Human Language
+Technologies 14, 4 (2021), 1–325.
+[27] David J. C. Mackay. 1992. A Practical Bayesian Framework for Backpropagation
+Networks. Neural Computation 4 (1992), 448–472.
+[28] Anay Mehrotra and Nisheeth Vishnoi. 2022. Fair Ranking with Noisy Protected
+Attributes. In Advances in Neural Information Processing Systems, Vol. 35. 31711–
+31725.
+[29] Tri Nguyen, Mir Rosenberg, Xia Song, Jianfeng Gao, Saurabh Tiwary, Rangan
+Majumder, and Li Deng. 2016. MS MARCO: A Human Generated Machine
+Reading Comprehension Dataset. In Proceedings of the Workshop on Cognitive
+Computation: Integrating Neural and Symbolic Approaches 2016.
+[30] Rodrigo Frassetto Nogueira and Kyunghyun Cho. 2019. Passage Re-ranking with
+BERT. arXiv preprint arXiv:1901.04085 (2019).
+[31] Gourab K. Patro, Lorenzo Porcaro, Laura Mitchell, Qiuyue Zhang, Meike Zehlike,
+and Nikhil Garg. 2022. Fair Ranking: A Critical Review, Challenges, and Future
+Directions. In 2022 ACM Conference on Fairness, Accountability, and Transparency.
+ACM, 1929–1942.
+[32] Gustavo Penha and Claudia Hauff. 2021. On the Calibration and Uncertainty of
+Neural Learning to Rank Models for Conversational Search. In Proceedings of
+the 16th Conference of the European Chapter of the Association for Computational
+Linguistics: Main Volume, EACL 2021, Online, April 19 - 23, 2021. Association for
+Computational Linguistics, 160–170.
+[33] Navid Rekabsaz, Simone Kopeinik, and Markus Schedl. 2021. Societal Biases
+in Retrieved Contents: Measurement Framework and Adversarial Mitigation of
+Bert Rankers. In Proceedings of the 44th International ACM SIGIR Conference on
+Research and Development in Information Retrieval. 306–316.
+[34] Navid Rekabsaz and Markus Schedl. 2020. Do Neural Ranking Models Intensify
+Gender Bias?. In Proceedings of the 43rd International ACM SIGIR Conference on
+Research and Development in Information Retrieval. 2065–2068.
+[35] Hippolyt Ritter, Aleksandar Botev, and David Barber. 2018. A Scalable Laplace
+Approximation for Neural Networks. In 6th International Conference on Learning
+Representations, ICLR 2018-Conference Track Proceedings. International Confer-
+ence on Representation Learning.
+[36] Stephen E Robertson. 1977. The Probability Ranking Principle in IR. Journal of
+Documentation 33 (1977), 294–304.
+[37] Keshav Santhanam, Omar Khattab, Jon Saad-Falcon, Christopher Potts, and Matei
+Zaharia. 2022. ColBERTv2: Effective and Efficient Retrieval via Lightweight Late
+Interaction. In Proceedings of the 2022 Conference of the North American Chapter
+of the Association for Computational Linguistics: Human Language Technologies.
+ACM, 3715–3734.
+[38] Fatemeh Sarvi, Maria Heuss, Mohammad Aliannejadi, Sebastian Schelter, and
+Maarten de Rijke. 2022. Understanding and Mitigating the Effect of Outliers in
+Fair Ranking. In Proceedings of the Fifteenth ACM International Conference on Web
+Search and Data Mining. 861–869.
+[39] Ashudeep Singh and Thorsten Joachims. 2018. Fairness of Exposure in Rankings.
+In Proceedings of the 24th ACM SIGKDD International Conference on Knowledge
+Discovery & Data Mining. 2219–2228.
+[40] Ashudeep Singh and Thorsten Joachims. 2019. Policy Learning for Fairness in
+Ranking. In Proceedings of the 33rd International Conference on Neural Information
+Processing Systems. 5426–5436.
+[41] Ashudeep Singh, David Kempe, and Thorsten Joachims. 2021. Fairness in Ranking
+under Uncertainty. In Advances in Neural Information Processing Systems, Vol. 34.
+11896–11908.
+[42] Julia Stoyanovich, Ke Yang, and HV Jagadish. 2018. Online Set Selection with
+Fairness and Diversity Constraints. In 21st International Conference on Extending
+Database Technology, EDBT 2018. 241–252.
+[43] Iulia Turc, Ming-Wei Chang, Kenton Lee, and Kristina Toutanova. 2019. Well-
+Read Students Learn Better: The Impact of Student Initialization on Knowledge
+Distillation. arXiv preprint arXiv:1908.08962 (2019).
+[44] Lequn Wang and Thorsten Joachims. 2021. User Fairness, Item Fairness, and
+Diversity for Rankings in Two-Sided Markets. In Proceedings of the 2021 ACM
+SIGIR International Conference on Theory of Information Retrieval. 23–41.
+[45] Ke Yang, Vasilis Gkatzelis, and Julia Stoyanovich. 2019. Balanced Ranking with
+Diversity Constraints. In Proceedings of the Twenty-Eighth International Joint
+Conference on Artificial Intelligence, IJCAI.
+[46] Tao Yang, Chen Luo, Hanqing Lu, Parth Gupta, Bing Yin, and Qingyao Ai. 2022.
+Can Clicks Be Both Labels and Features? Unbiased Behavior Feature Collection
+
+Predictive Uncertainty-based Bias Mitigation in Ranking
+CIKM ’23, October 21–25, 2023, Birmingham, United Kingdom
+and Uncertainty-Aware Learning to Rank. In Proceedings of the 45th International
+ACM SIGIR Conference on Research and Development in Information Retrieval.
+ACM, 6–17.
+[47] Tao Yang, Zhichao Xu, Zhenduo Wang, Anh Tran, and Qingyao Ai. 2023.
+Marginal-Certainty-aware Fair Ranking Algorithm. In Proceedings of the Six-
+teenth ACM International Conference on Web Search and Data Mining. 24–32.
+[48] Meike Zehlike, Francesco Bonchi, Carlos Castillo, Sara Hajian, Mohamed Mega-
+hed, and Ricardo Baeza-Yates. 2017. FA*IR: A Fair Top-k Ranking Algorithm.
+In Proceedings of the 2017 ACM on Conference on Information and Knowledge
+Management. 1569–1578.
+[49] Meike Zehlike and Carlos Castillo. 2020. Reducing Disparate Exposure in Ranking:
+A Learning To Rank Approach. In Proceedings of The Web Conference 2020. 2849–
+2855.
+[50] Meike Zehlike, Tom Sühr, Ricardo Baeza-Yates, Francesco Bonchi, Carlos Castillo,
+and Sara Hajian. 2022. Fair Top-k Ranking with Multiple Protected Groups.
+Information Processing & Management 59, 1 (2022), 102707.
+[51] Meike Zehlike, Ke Yang, and Julia Stoyanovich. 2022. Fairness in Ranking, Part I:
+Score-based Ranking. Comput. Surveys 55, 6 (2022), 1–36.
+[52] Meike Zehlike, Ke Yang, and Julia Stoyanovich. 2022. Fairness in Ranking, Part
+II: Learning-to-rank and Recommender Systems. Comput. Surveys 55, 6 (2022),
+1–41.
+[53] George Zerveas, Navid Rekabsaz, Daniel Cohen, and Carsten Eickhoff. 2022.
+Mitigating Bias in Search Results Through Contextual Document Reranking and
+Neutrality Regularization. In Proceedings of the 45th International ACM SIGIR
+Conference on Research and Development in Information Retrieval. 2532–2538.
+[54] Jianhan Zhu, Jun Wang, Michael Taylor, and Ingemar J. Cox. 2009. Risk-Aware
+Information Retrieval. In Advances in Information Retrieval: 31th European Con-
+ference on IR Research, ECIR 2009, Toulouse, France, April 6-9, 2009. Proceedings 31.
+Springer-Verlag, 17–28.","https://arxiv.org/pdf/2309.09833v1","arxiv","0.0022227850276976824","4","3","0.7","While the paper deals with bias mitigation in ranking, it does not directly address the search and retrieval aspects emphasized in the query."
+"8","Contrasting Neural Click Models and Pointwise IPS Rankers","2023","European Conference on Information Retrieval","Philipp Hager, M. de Rijke, O. Zoeter","5","","","","abstract_only","0.33210453391075134","2","4","0.6","The paper contrasts neural click models and pointwise IPS rankers, which are related to ranking methods but do not specifically address the search and retrieval components discussed in the query."
+"4","Improving the Generalizability of the Dense Passage Retriever Using Generated Datasets","2023","European Conference on Information Retrieval","Thilina C. Rajapakse, M. de Rijke","4","","","","abstract_only","0.33427301049232483","1","5","0.5","The paper focuses on improving the generalizability of dense passage retrievers, which is somewhat related to the query but does not directly address the search and retrieval methods examined in the query."

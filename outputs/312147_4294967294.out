@@ -1,0 +1,43 @@
+
+============================================================
+SCIENTIFIC IR PIPELINE — START
+============================================================
+
+[Stage 0] Fetching papers from Google Scholar and full-text sources...
+
+============================================================
+STAGE 0 — Fetching papers from Google Scholar
+============================================================
+Author ID : WLN3QrAAAAAJ
+[Stage 0] Google Scholar lookup failed; falling back to Semantic Scholar search using the configured query.
+[Stage 0] Reason: 'NoneType' object has no attribute 'get'
+
+============================================================
+STAGE 0 — Fetching papers from Semantic Scholar fallback
+============================================================
+    [Semantic Scholar] Rate limited (429); retrying in 1s...
+    [Semantic Scholar] Rate limited (429); retrying in 2s...
+    [Semantic Scholar] Rate limited (429); retrying in 4s...
+[Stage 0] Semantic Scholar search failed: Semantic Scholar request failed after retries
+[Stage 0] Falling back to arXiv query search.
+
+============================================================
+STAGE 0 — Fetching papers from arXiv fallback
+============================================================
+  [ 1] ✅ full text (arxiv) — Long-Range Transformer Architectures for Document Understand
+  [ 2] ✅ full text (arxiv) — Neural ranking models for document retrieval
+  [ 3] ✅ full text (arxiv) — IPPOG : Bridging the gap between science education at school
+  [ 4] ✅ full text (arxiv) — Towards Better Instruction Following Retrieval Models
+  [ 5] ✅ full text (arxiv) — Weakly-Supervised Scientific Document Classification via Ret
+  [ 6] ✅ full text (arxiv) — Do the Findings of Document and Passage Retrieval Generalize
+  [ 7] ✅ full text (arxiv) — The Next Phase of Scientific Fact-Checking: Advanced Evidenc
+  [ 8] ✅ full text (arxiv) — Lightweight and Direct Document Relevance Optimization for G
+  [ 9] ✅ full text (arxiv) — Improving BERT-based Query-by-Document Retrieval with Multi-
+  [10] ✅ full text (arxiv) — Acronym Identification and Disambiguation Shared Tasks for S
+  [11] ✅ full text (arxiv) — Overcoming low-utility facets for complex answer retrieval
+  [12] ✅ full text (arxiv) — Document Retrieval on Repetitive String Collections
+  [13] ✅ full text (arxiv) — +VeriRel: Verification Feedback to Enhance Document Retrieva
+  [14] ✅ full text (arxiv) — UniFAR: A Unified Facet-Aware Retrieval Framework for Scient
+  [15] ✅ full text (arxiv) — Sparse Meets Dense: A Hybrid Approach to Enhance Scientific 
+
+✅ Fetched 15 papers | Full text available: 15/15

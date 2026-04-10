@@ -1,0 +1,109 @@
+Using fallback Semantic Scholar query: lecun
+
+Semantic Scholar matches
+------------------------------------------------------------
+ 1. Y. LeCun | score=0.824 | affiliations=N/A
+ 2. Yann LeCun | score=0.947 | affiliations=Facebook, NYU
+ 3. Le-Ping Yang | score=0.286 | affiliations=N/A
+Best match: Yann LeCun (score=0.947)
+
+Selected author
+------------------------------------------------------------
+Name         : Yann LeCun
+Affiliations : Facebook, NYU
+Author ID    : 1688882
+
+============================================================
+SCIENTIFIC IR PIPELINE — START
+============================================================
+Target person : Yan Lecun
+Selected name : Yann LeCun
+Selected aff. : Facebook, NYU
+Preferred N   : 10
+
+[Stage 0] Fetching papers and full-text sources...
+
+============================================================
+STAGE 0 — Fetching papers for one Semantic Scholar author
+============================================================
+Person          : Yann LeCun
+Affiliations    : Facebook, NYU
+Papers available: 403
+    [Semantic Scholar PDF] Could not fetch 'FAST INCREMENTAL LEARNING FOR AUTONOMOUS GROUND NAVIGATION': 429 Client Error:  for url: https://api.semanticscholar.org/graph/v1/paper/search?query=FAST+INCREMENTAL+LEARNING+FOR+AUTONOMOUS+GROUND+NAVIGATION&fields=title%2Cabstract%2CopenAccessPdf&limit=1
+  [ 1] ❌ full text (abstract_only) — FAST INCREMENTAL LEARNING FOR AUTONOMOUS GROUND NAVIGATION
+       Authors       : Artem Provodin, L. Torabi, Urs Muller, B. Flepp, Michael Sergio, Jure Zbontar, Yann LeCun, L. Jackel
+       Affiliations  : Artem Provodin: N/A; L. Torabi: N/A; Urs Muller: N/A; B. Flepp: N/A; Michael Sergio: N/A; Jure Zbontar: N/A; Yann LeCun: N/A; L. Jackel: N/A
+  [ 2] ✅ full text (arxiv) — Learning and Leveraging World Models in Visual Representatio
+       Authors       : Q. Garrido, Mahmoud Assran, Nicolas Ballas, Adrien Bardes, Laurent Najman, Yann LeCun
+       Affiliations  : Q. Garrido: N/A; Mahmoud Assran: N/A; Nicolas Ballas: N/A; Adrien Bardes: N/A; Laurent Najman: N/A; Yann LeCun: N/A
+  [ 3] ✅ full text (semantic_scholar_pdf) — The SSL Interplay: Augmentations, Inductive Bias, and Genera
+       Authors       : Vivien A. Cabannes, B. Kiani, Randall Balestriero, Yann LeCun, A. Bietti
+       Affiliations  : Vivien A. Cabannes: N/A; B. Kiani: N/A; Randall Balestriero: N/A; Yann LeCun: N/A; A. Bietti: N/A
+    [Semantic Scholar PDF] Could not fetch 'Minimalistic Unsupervised Representation Learning with the S': 429 Client Error:  for url: https://api.semanticscholar.org/graph/v1/paper/search?query=Minimalistic+Unsupervised+Representation+Learning+with+the+Sparse+Manifold+Transform&fields=title%2Cabstract%2CopenAccessPdf&limit=1
+    [Semantic Scholar] Rate limited (429); retrying in 1s...
+    [Semantic Scholar] Rate limited (429); retrying in 2s...
+    [Semantic Scholar] Rate limited (429); retrying in 4s...
+    [Semantic Scholar Abstract] Warning for 'Minimalistic Unsupervised Representation Learning with the S': Semantic Scholar request failed after retries
+  [ 4] ❌ full text (abstract_only) — Minimalistic Unsupervised Representation Learning with the S
+       Authors       : Yubei Chen, Zeyu Yun, Yi Ma, B. Olshausen, Yann LeCun
+       Affiliations  : Yubei Chen: N/A; Zeyu Yun: N/A; Yi Ma: N/A; B. Olshausen: N/A; Yann LeCun: N/A
+  [ 5] ✅ full text (semantic_scholar_pdf) — Self-supervised learning of Split Invariant Equivariant repr
+       Authors       : Q. Garrido, Laurent Najman, Yann LeCun
+       Affiliations  : Q. Garrido: N/A; Laurent Najman: N/A; Yann LeCun: N/A
+  [ 6] ✅ full text (semantic_scholar_pdf) — Fast and Exact Enumeration of Deep Networks Partitions Regio
+       Authors       : Randall Balestriero, Yann LeCun
+       Affiliations  : Randall Balestriero: N/A; Yann LeCun: N/A
+  [ 7] ✅ full text (arxiv) — Active Self-Supervised Learning: A Few Low-Cost Relationship
+       Authors       : Vivien A. Cabannes, L. Bottou, Yann LeCun, Randall Balestriero
+       Affiliations  : Vivien A. Cabannes: N/A; L. Bottou: N/A; Yann LeCun: N/A; Randall Balestriero: N/A
+  [ 8] ✅ full text (semantic_scholar_pdf) — An Information-Theoretic Perspective on Variance-Invariance-
+       Authors       : Ravid Shwartz-Ziv, Randall Balestriero, Kenji Kawaguchi, Tim G. J. Rudner, Yann LeCun
+       Affiliations  : Ravid Shwartz-Ziv: N/A; Randall Balestriero: N/A; Kenji Kawaguchi: N/A; Tim G. J. Rudner: N/A; Yann LeCun: N/A
+  [ 9] ✅ full text (arxiv) — Augmented Language Models: a Survey
+       Authors       : G. Mialon, Roberto Dessì, M. Lomeli, Christoforos Nalmpantis, Ramakanth Pasunuru, R. Raileanu, Baptiste Rozière, Timo Schick, Jane Dwivedi-Yu, Asli Celikyilmaz, Edouard Grave, Yann LeCun, Thomas Scialom
+       Affiliations  : G. Mialon: N/A; Roberto Dessì: N/A; M. Lomeli: N/A; Christoforos Nalmpantis: N/A; Ramakanth Pasunuru: N/A; R. Raileanu: N/A; Baptiste Rozière: N/A; Timo Schick: N/A; Jane Dwivedi-Yu: N/A; Asli Celikyilmaz: N/A; Edouard Grave: N/A; Yann LeCun: N/A; Thomas Scialom: N/A
+  [10] ✅ full text (arxiv) — Harnessing Explanations: LLM-to-LM Interpreter for Enhanced 
+       Authors       : Xiaoxin He, X. Bresson, T. Laurent, Adam Perold, Yann LeCun, Bryan Hooi
+       Affiliations  : Xiaoxin He: N/A; X. Bresson: N/A; T. Laurent: N/A; Adam Perold: N/A; Yann LeCun: N/A; Bryan Hooi: N/A
+
+✅ Fetched 10 papers | Full text available: 8/10
+💾 Saved to 'data/papers_raw.csv'
+[Stage 0] Output shape: (10, 10)
+
+[Stage 1] Cross-encoder reranking (coarse)...
+
+============================================================
+STAGE 1 — Coarse ranking with cross-encoder reranker
+============================================================
+Query : "revisiting text ranking in deep research"
+Papers: 10 | Keeping top: 5
+  ⚠️  1 papers have no abstract — scoring on title only.
+Loading reranker : BAAI/bge-reranker-v2-m3
+Scoring 10 (query, document) pairs...
+
+────────────────────────────────────────────────────────────
+Rank     Score  Source                  Title
+────────────────────────────────────────────────────────────
+  [ 1]  0.0010  arxiv                   Harnessing Explanations: LLM-to-LM Interpreter for Enha
+  [ 2]  0.0006  semantic_scholar_pdf    Fast and Exact Enumeration of Deep Networks Partitions 
+  [ 3]  0.0002  arxiv                   Augmented Language Models: a Survey
+  [ 4]  0.0001  arxiv                   Active Self-Supervised Learning: A Few Low-Cost Relatio
+  [ 5]  0.0001  arxiv                   Learning and Leveraging World Models in Visual Represen
+────────────────────────────────────────────────────────────
+
+✅ Stage 1 complete — kept top 5 papers.
+   Full text available in top-5: 5/5
+💾 Saved to 'data/papers_stage1.csv'
+[Stage 1] Output shape: (5, 12)
+
+[Stage 2] LLM-based listwise ranking and rationale extraction...
+
+============================================================
+STAGE 2 — Fine ranking with LLM (listwise)
+============================================================
+Input text mode : full_text
+Papers with full text : 5/5
+  → 4-bit quantization enabled (bitsandbytes)
+Loading LLM : Qwen/Qwen2.5-7B-Instruct
+Prompt length : 111896 tokens
+Running LLM inference...

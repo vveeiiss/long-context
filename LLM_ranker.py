@@ -35,9 +35,14 @@ def load_llm() -> tuple[AutoTokenizer, AutoModelForCausalLM]:
     tokenizer : AutoTokenizer
     model     : AutoModelForCausalLM
     """
-    print(f"Loading LLM : {config.LLM_MODEL_NAME}")
-
-    tokenizer = AutoTokenizer.from_pretrained(config.LLM_MODEL_NAME)
+    model_candidates = [
+        config.LLM_MODEL_NAME,
+        "Qwen/Qwen2.5-7B-Instruct",
+        "Qwen/Qwen2.5-3B-Instruct",
+        "meta-llama/Llama-3.2-3B-Instruct",
+    ]
+    # Preserve order while removing duplicates.
+    model_candidates = list(dict.fromkeys(model_candidates))
 
     load_kwargs: dict = dict(
         torch_dtype=torch.float16,
@@ -51,9 +56,23 @@ def load_llm() -> tuple[AutoTokenizer, AutoModelForCausalLM]:
             bnb_4bit_compute_dtype=torch.float16,
         )
 
-    model = AutoModelForCausalLM.from_pretrained(config.LLM_MODEL_NAME, **load_kwargs)
-    model.eval()
-    return tokenizer, model
+    last_exc: Exception | None = None
+    for model_name in model_candidates:
+        try:
+            print(f"Loading LLM : {model_name}")
+            tokenizer = AutoTokenizer.from_pretrained(model_name)
+            model = AutoModelForCausalLM.from_pretrained(model_name, **load_kwargs)
+            model.eval()
+            return tokenizer, model
+        except Exception as exc:
+            print(f"  -> Failed to load '{model_name}': {exc}")
+            last_exc = exc
+
+    raise RuntimeError(
+        "Could not load any configured/fallback Hugging Face model. "
+        "If your target model is private or gated, authenticate with `huggingface-cli login` "
+        "or set a valid public model in config.LLM_MODEL_NAME."
+    ) from last_exc
 
 
 # ─────────────────────────────────────────────────────────────────────────────
@@ -222,43 +241,65 @@ def parse_llm_output(llm_output: str, papers: pd.DataFrame) -> pd.DataFrame:
         stage2_score     : float
         stage2_rationale : str
     """
-    results = []
-    current: dict = {}
+    matches = list(_RANK_RE.finditer(llm_output))
+    parsed_by_idx: dict[int, dict] = {}
 
-    for line in llm_output.strip().splitlines():
-        rank_match = _RANK_RE.search(line)
-        if rank_match:
-            current = {
-                "stage2_rank":  int(rank_match.group(1)),
-                "paper_idx":    int(rank_match.group(2)) - 1,  # 0-indexed
-                "stage2_score": float(rank_match.group(3)),
+    for i, match in enumerate(matches):
+        stage2_rank = int(match.group(1))
+        paper_idx = int(match.group(2)) - 1  # 0-indexed
+        stage2_score = float(match.group(3))
+
+        seg_start = match.end()
+        seg_end = matches[i + 1].start() if i + 1 < len(matches) else len(llm_output)
+        segment = llm_output[seg_start:seg_end].strip()
+
+        rationale_match = _RATIONALE_RE.search(segment)
+        if rationale_match:
+            stage2_rationale = rationale_match.group(1).strip()
+        else:
+            non_empty = [ln.strip() for ln in segment.splitlines() if ln.strip()]
+            stage2_rationale = non_empty[0] if non_empty else "No rationale parsed from model output."
+
+        if 0 <= paper_idx < len(papers):
+            parsed_by_idx[paper_idx] = {
+                "stage2_rank": stage2_rank,
+                "stage2_score": stage2_score,
+                "stage2_rationale": stage2_rationale,
             }
+
+    if not parsed_by_idx:
+        print("  ⚠️  Could not parse LLM output — falling back to Stage 1 order.")
+
+    all_rows = []
+    used_ranks = {
+        rec["stage2_rank"]
+        for rec in parsed_by_idx.values()
+        if isinstance(rec.get("stage2_rank"), int)
+    }
+    next_rank = 1
+    for idx in range(len(papers)):
+        if idx in parsed_by_idx:
+            rec = parsed_by_idx[idx]
+            row = papers.iloc[idx].to_dict()
+            row["stage2_rank"] = rec["stage2_rank"]
+            row["stage2_score"] = rec["stage2_score"]
+            row["stage2_rationale"] = rec["stage2_rationale"]
+            all_rows.append(row)
             continue
 
-        rationale_match = _RATIONALE_RE.search(line)
-        if rationale_match and current:
-            idx = current["paper_idx"]
-            if 0 <= idx < len(papers):
-                row = papers.iloc[idx].to_dict()   # preserves ALL columns
-                row["stage2_rank"]      = current["stage2_rank"]
-                row["stage2_score"]     = current["stage2_score"]
-                row["stage2_rationale"] = rationale_match.group(1).strip()
-                results.append(row)
-            current = {}
+        while next_rank in used_ranks:
+            next_rank += 1
+        row = papers.iloc[idx].to_dict()
+        row["stage2_rank"] = next_rank
+        if len(papers) > 1:
+            row["stage2_score"] = round(max(0.01, 1.0 - ((next_rank - 1) / len(papers))), 2)
+        else:
+            row["stage2_score"] = 1.0
+        row["stage2_rationale"] = "Auto-filled fallback rationale: model output missing this paper's rationale."
+        all_rows.append(row)
+        used_ranks.add(next_rank)
 
-    if not results:
-        print("  ⚠️  Could not parse LLM output — falling back to Stage 1 order.")
-        fallback = papers.copy()
-        fallback["stage2_rank"]      = range(1, len(papers) + 1)
-        fallback["stage2_score"]     = None
-        fallback["stage2_rationale"] = ""
-        return fallback
-
-    return (
-        pd.DataFrame(results)
-        .sort_values("stage2_rank")
-        .reset_index(drop=True)
-    )
+    return pd.DataFrame(all_rows).sort_values("stage2_rank").reset_index(drop=True)
 
 
 # ─────────────────────────────────────────────────────────────────────────────

@@ -1,0 +1,149 @@
+
+============================================================
+SCIENTIFIC IR PIPELINE — START
+============================================================
+
+[Stage 0] Fetching papers from Google Scholar and full-text sources...
+
+============================================================
+STAGE 0 — Fetching papers from Google Scholar
+============================================================
+Author ID : WLN3QrAAAAAJ
+[Stage 0] Google Scholar lookup failed; falling back to Semantic Scholar search using the configured query.
+[Stage 0] Reason: 'NoneType' object has no attribute 'get'
+
+============================================================
+STAGE 0 — Fetching papers from Semantic Scholar fallback
+============================================================
+    [Semantic Scholar] Rate limited (429); retrying in 1s...
+    [Semantic Scholar] Rate limited (429); retrying in 2s...
+    [Semantic Scholar] Rate limited (429); retrying in 4s...
+[Stage 0] Semantic Scholar search failed: Semantic Scholar request failed after retries
+[Stage 0] Falling back to arXiv query search.
+
+============================================================
+STAGE 0 — Fetching papers from arXiv fallback
+============================================================
+  [ 1] ✅ full text (arxiv) — Long-Range Transformer Architectures for Document Understand
+  [ 2] ✅ full text (arxiv) — Neural ranking models for document retrieval
+  [ 3] ✅ full text (arxiv) — IPPOG : Bridging the gap between science education at school
+  [ 4] ✅ full text (arxiv) — Towards Better Instruction Following Retrieval Models
+  [ 5] ✅ full text (arxiv) — Weakly-Supervised Scientific Document Classification via Ret
+  [ 6] ✅ full text (arxiv) — Do the Findings of Document and Passage Retrieval Generalize
+  [ 7] ✅ full text (arxiv) — The Next Phase of Scientific Fact-Checking: Advanced Evidenc
+  [ 8] ✅ full text (arxiv) — Lightweight and Direct Document Relevance Optimization for G
+  [ 9] ✅ full text (arxiv) — Improving BERT-based Query-by-Document Retrieval with Multi-
+  [10] ✅ full text (arxiv) — Acronym Identification and Disambiguation Shared Tasks for S
+  [11] ✅ full text (arxiv) — Overcoming low-utility facets for complex answer retrieval
+  [12] ✅ full text (arxiv) — Document Retrieval on Repetitive String Collections
+  [13] ✅ full text (arxiv) — +VeriRel: Verification Feedback to Enhance Document Retrieva
+  [14] ✅ full text (arxiv) — UniFAR: A Unified Facet-Aware Retrieval Framework for Scient
+  [15] ✅ full text (arxiv) — Sparse Meets Dense: A Hybrid Approach to Enhance Scientific 
+
+✅ Fetched 15 papers | Full text available: 15/15
+💾 Saved to 'data/papers_raw.csv'
+[Stage 0] Output shape: (15, 10)
+
+[Stage 1] Cross-encoder reranking (coarse)...
+
+============================================================
+STAGE 1 — Coarse ranking with cross-encoder reranker
+============================================================
+Query : "transformer models for scientific document retrieval"
+Papers: 15 | Keeping top: 5
+Loading reranker : BAAI/bge-reranker-v2-m3
+Scoring 15 (query, document) pairs...
+
+────────────────────────────────────────────────────────────
+Rank     Score  Source                  Title
+────────────────────────────────────────────────────────────
+  [ 1]  0.9863  arxiv                   Sparse Meets Dense: A Hybrid Approach to Enhance Scient
+  [ 2]  0.8658  arxiv                   Long-Range Transformer Architectures for Document Under
+  [ 3]  0.6708  arxiv                   UniFAR: A Unified Facet-Aware Retrieval Framework for S
+  [ 4]  0.1540  arxiv                   Neural ranking models for document retrieval
+  [ 5]  0.1523  arxiv                   Weakly-Supervised Scientific Document Classification vi
+────────────────────────────────────────────────────────────
+
+✅ Stage 1 complete — kept top 5 papers.
+   Full text available in top-5: 5/5
+💾 Saved to 'data/papers_stage1.csv'
+[Stage 1] Output shape: (5, 12)
+
+[Stage 2] LLM-based listwise ranking and rationale extraction...
+
+============================================================
+STAGE 2 — Fine ranking with LLM (listwise)
+============================================================
+Input text mode : abstract
+Papers with full text : 5/5
+Loading LLM : Qwen/Qwen2.5-7B-Instruct
+Prompt length : 1388 tokens
+Running LLM inference...
+
+--- Raw LLM Output (first 2000 chars) ---
+RANK 1 | Paper [1] | Score: 0.85
+Rationale: This paper directly addresses the use of transformer models for scientific document retrieval, specifically in the medical domain of cystic fibrosis, making it highly relevant to the query.
+
+RANK 2 | Paper [5] | Score: 0.75
+Rationale: While this paper does not explicitly mention transformers, it discusses weakly-supervised scientific document classification, which is related to document retrieval, and could potentially benefit from transformer-based models.
+
+RANK 3 | Paper [4] | Score: 0.65
+Rationale: This paper provides a broad overview of neural ranking models for document retrieval, which is a foundational topic for understanding how transformers might be applied to document retrieval, but it does not specifically discuss transformers.
+
+RANK 4 | Paper [2] | Score: 0.55
+Rationale: Although this paper discusses transformers, it focuses on document understanding rather than retrieval, and does not specifically mention scientific documents or transformers in the context of retrieval.
+
+RANK 5 | Paper [3] | Score: 0.45
+Rationale: This paper discusses a unified framework for scientific document retrieval, but it does not specifically mention transformers, making it less relevant to the query focused on transformer models. RANK 1 | Paper [1] | Score: 0.85
+Rationale: This paper directly addresses the use of transformer models for scientific document retrieval, specifically in the medical domain of cystic fibrosis, making it highly relevant to the query.
+
+RANK 2 | Paper [5] | Score: 0.75
+Rationale: While this paper does not explicitly mention transformers, it discusses weakly-supervised scientific document classification, which is related to document retrieval, and could potentially benefit from transformer-based models.
+
+RANK 3 | Paper [4] | Score: 0.65
+Rationale: This paper provides a broad overview of neural ranking models for document retrieval, which is a foundational topic for understanding how transformers might be applied
+  ⚠️  Could not parse LLM output — falling back to Stage 1 order.
+
+────────────────────────────────────────────────────────────
+Stage 2 Final Ranking
+────────────────────────────────────────────────────────────
+
+  Rank  1 | Score: N/A | Source: arxiv
+  Title     : Sparse Meets Dense: A Hybrid Approach to Enhance Scientific Document Retrieval
+  Rationale : 
+
+  Rank  2 | Score: N/A | Source: arxiv
+  Title     : Long-Range Transformer Architectures for Document Understanding
+  Rationale : 
+
+  Rank  3 | Score: N/A | Source: arxiv
+  Title     : UniFAR: A Unified Facet-Aware Retrieval Framework for Scientific Documents
+  Rationale : 
+
+  Rank  4 | Score: N/A | Source: arxiv
+  Title     : Neural ranking models for document retrieval
+  Rationale : 
+
+  Rank  5 | Score: N/A | Source: arxiv
+  Title     : Weakly-Supervised Scientific Document Classification via Retrieval-Augmented Mul
+  Rationale : 
+────────────────────────────────────────────────────────────
+
+✅ Stage 2 complete.
+💾 Saved to 'data/papers_stage2.csv'
+[Stage 2] Output shape: (5, 15)
+
+============================================================
+SCIENTIFIC IR PIPELINE — COMPLETE
+  Query              : transformer models for scientific document retrieval
+  Papers scraped     : 15
+  After Stage 1      : 5
+  Final ranking      : 5
+  Stage 2 input mode : abstract
+  Papers w/ full text: 5/5
+
+  Output files:
+    data/papers_raw.csv
+    data/papers_stage1.csv
+    data/papers_stage2.csv
+============================================================
