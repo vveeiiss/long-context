@@ -1,5 +1,5 @@
 sbatch_gpu.sh
 __pycache__
-/home/mdavood/Long_context/outputs
+outputs
 err.e
 PAPER_URL_MODE.md
